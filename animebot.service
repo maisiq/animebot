@@ -1,0 +1,14 @@
+[Unit]
+Description=AnimeAlarm bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+
+ExecStart=/home/animealarm/startup.sh
+ExecStop=/bin/kill -15 $MAINPID
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,25 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+aiogram = "*"
+beautifulsoup4 = "*"
+requests = "*"
+pydantic = "*"
+celery = {extras = ["gevent"] }
+apscheduler = "*"
+sqlalchemy = "*"
+psycopg = "*"
+alembic = "*"
+python-dotenv = "*"
+transliterate = "*"
+aiohttp = "*"
+dependency-injector = "*"
+psycopg-binary = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.11"
