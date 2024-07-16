@@ -6,9 +6,7 @@ name = "pypi"
 [packages]
 aiogram = "*"
 beautifulsoup4 = "*"
-requests = "*"
 pydantic = "*"
-celery = {extras = ["gevent"] }
 apscheduler = "*"
 sqlalchemy = "*"
 psycopg = "*"
