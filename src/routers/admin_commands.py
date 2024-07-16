@@ -195,7 +195,6 @@ async def approve_result(
     state: FSMContext,
     admin_repo: AdminRepository = Provide[Container.admin_repository],
 ):
-    message.chat.i
     anime = await state.get_data()
     try:
         origin = await admin_repo.get_origin_by_name(anime['origin_name'])
