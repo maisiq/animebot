@@ -10,7 +10,7 @@ COPY ./requirements/ ./requirements/
 
 ARG BUILD=dev
 
-RUN ["pip", "install", "--no-cache-dir", "-r", "./requirements/${BUILD}.txt"]
+RUN pip install --no-cache-dir -r ./requirements/${BUILD}.txt
 
 COPY . .
 
