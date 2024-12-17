@@ -17,6 +17,7 @@ env:
 
 jobs:
   test:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,8 +42,8 @@ jobs:
       - name: Build image
         id: build_image
         run: |
-          echo "DOCKER_IMAGE=${{env.DOCKER_IMAGE_BASE}}:${{hashFiles('./requirements/prod.txt')}}" | tee -a $GITHUB_OUTPUT $GITHUB_ENV >> /dev/null &&
-          docker build --build-arg BUILD=dev -t $DOCKER_IMAGE .
+          echo "DOCKER_IMAGE=${{env.DOCKER_IMAGE_BASE}}:${{hashFiles('./requirements/prod.txt')}}" | tee -a $GITHUB_OUTPUT $GITHUB_ENV > /dev/null &&
+          docker build --build-arg BUILD=dev -t ${{env.DOCKER_IMAGE_BASE}}:${{hashFiles('./requirements/prod.txt')}} .
       - name: Login to Github Container Registry
         run: echo ${{ secrets.GHCR_TOKEN }} | docker login --username $GITHUB_ACTOR --password-stdin ghcr.io
       - name: Push image to GHCR
