@@ -5,4 +5,4 @@ services:
     depends_on:
       - db
   db:
-    image: docker.io/postgresql
+    image: postgres
