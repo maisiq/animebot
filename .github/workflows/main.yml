@@ -43,8 +43,8 @@ jobs:
         id: build_image
         run: |
           DOCKER_IMAGE=${{env.DOCKER_IMAGE_BASE}}:${{hashFiles('./requirements/prod.txt')}} &&
-          echo DOCKER_IMAGE | tee -a $GITHUB_OUTPUT $GITHUB_ENV > /dev/null &&
-          docker build --build-arg BUILD=dev -t DOCKER_IMAGE .
+          echo $DOCKER_IMAGE | tee -a $GITHUB_OUTPUT $GITHUB_ENV &&
+          docker build --build-arg BUILD=dev -t $DOCKER_IMAGE .
       - name: Login to Github Container Registry
         run: echo ${{ secrets.GHCR_TOKEN }} | docker login --username $GITHUB_ACTOR --password-stdin ghcr.io
       - name: Push image to GHCR
