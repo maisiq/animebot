@@ -1,0 +1,8 @@
+
+services:
+  bot:
+    image: ${DOCKER_IMAGE_NAME}
+    depends_on:
+      - db
+  db:
+    image: postgres
