@@ -37,7 +37,7 @@ jobs:
         with:
           python-version: '3.11.9' # repeat
       - name: Build image
-        run: docker build --build-arg BUILD=dev -t ghcr.io/${{env.DOCKER_IMAGE}}:${{hashFiles('./requirements/prod.txt')}} .
+        run: docker build --build-arg BUILD=dev -t ${{env.DOCKER_IMAGE}}:${{hashFiles('./requirements/prod.txt')}} .
       - name: Login to Github Container Registry
         run: echo ${{ secrets.GHCR_TOKEN }} | docker login --username $GITHUB_ACTOR --password-stdin ghcr.io
       - name: Push image to GHCR
