@@ -59,7 +59,7 @@ jobs:
       - name: Pull image from GHCR
         run: export DOCKER_IMAGE_NAME=${{ env.DOCKER_IMAGE }}:${{hashFiles('./requirements/prod.txt')}} && docker pull $DOCKER_IMAGE_NAME
       - name: Run app
-        run: docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.yml up -d
+        run: docker compose -f docker-compose.yml down && docker compose -f docker-compose.yml up -d
       - name: Run performance tests
         run: echo Run performance tests
 
@@ -77,7 +77,7 @@ jobs:
       - name: Pull image from GHCR
         run: docker pull ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_IMAGE_TAG }}
       - name: Run app
-        run: docker-compose -f docker-compose.yml down && docker-compose -f docker-compose.yml up -d
+        run: docker compose -f docker-compose.yml down && docker compose -f docker-compose.yml up -d
 
 
   
