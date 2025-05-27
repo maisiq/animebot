@@ -1,0 +1,29 @@
+name: tg_anime_bot
+
+services:
+  bot:
+    container_name: anime_bot
+    image: ${DOCKER_IMAGE_NAME}
+    build: .
+    command: ["./init.sh", "--auto"]
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    container_name: anime_bot_db
+    image: postgres:17.2
+    restart: always
+    env_file:
+      - .env
+    shm_size: 128mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 1ms
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+    
