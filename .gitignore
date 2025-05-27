@@ -1,4 +1,5 @@
 .env*
+!.env-empty
 __pycache__/
 migrations/versions/*.py
 ansible_deploy/*
