@@ -1,14 +1,13 @@
 from os import getenv
-from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-
-from dependency_injector import providers, containers
+from dependency_injector import containers, providers
+from dotenv import load_dotenv
 
 from src.repository.config import get_session_di
-from src.repository.repository import UsersRepository, AdminRepository, AnimeRepository
+from src.repository.repository import AdminRepository, AnimeRepository, UsersRepository
 
 # load env variables
 load_dotenv()
@@ -22,8 +21,8 @@ bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 class Container(containers.DeclarativeContainer):
     wiring_config = containers.WiringConfiguration(
         packages=[
-            "src.routers",
-            "src.tasks.notification_task"
+            "routers",
+            "tasks.notification_task"
         ],
     )
 
