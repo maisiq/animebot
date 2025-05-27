@@ -24,6 +24,7 @@ class Container(containers.DeclarativeContainer):
             "routers",
             "tasks.notification_task"
         ],
+        modules=["tasks.scrapping_task.utils"]
     )
 
     session = providers.Resource(get_session_di)
