@@ -1,7 +1,6 @@
-from pathlib import Path
 import asyncio
-import logging
 import sys
+from pathlib import Path
 
 # add dirs to $PATH
 sys.path.append(str(Path(__file__).parent.parent))
@@ -9,13 +8,13 @@ sys.path.append(str(Path(__file__).parent))
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from src.tasks.scrapping_task.scrapper import scrapper
-from src.tasks.notification_task.notify_and_save import new_episode_worker
-from src.repository.config import sessionmanager
-from src.config import dp, bot, Container
-from src.routers.admin_commands import router as commands_router
-from src.routers.handlers import router as handlers_router
+from config import Container, bot, dp
 from logs.log_config import setup_logger
+from repository.config import sessionmanager
+from routers.admin_commands import router as commands_router
+from routers.handlers import router as handlers_router
+from tasks.notification_task.notify_and_save import new_episode_worker
+from tasks.scrapping_task.scrapper import scrapper
 
 
 async def main() -> None:

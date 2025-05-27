@@ -1,23 +1,17 @@
-import logging
-
-from aiogram import html, F, Router
-from aiogram.utils.keyboard import ReplyKeyboardBuilder, KeyboardButton, InlineKeyboardBuilder, InlineKeyboardButton
+from aiogram import F, Router
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart, Command, CommandObject
-from aiogram.types import Message, PhotoSize, BufferedInputFile, CallbackQuery
-from aiogram.filters import StateFilter
+from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
-from aiogram.utils.formatting import as_list, as_marked_section, Bold
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import Message
+from aiogram.utils.formatting import Bold, as_marked_section
 from aiogram.utils.markdown import hide_link
-
 from dependency_injector.wiring import Provide, inject
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError, NoResultFound
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 
-from src.repository.repository import AdminRepository
-from .middleware import IsAdminMiddleware
-from ..config import Container
+from config import Container
+from repository.repository import AdminRepository
+from routers.middleware import IsAdminMiddleware
 
 router = Router()
 router.message.middleware(IsAdminMiddleware())
@@ -32,7 +26,7 @@ async def cancel_current_operation_handler(message: Message, state: FSMContext) 
 # HELPME COMMAND
 
 @router.message(Command("helpme"))
-async def add_origin_command(message: Message):
+async def list_commands_handler(message: Message):
     '''Команда для вывода всех доступных админу команд'''
 
     await message.answer(
@@ -52,8 +46,8 @@ async def add_origin_command(message: Message):
 @router.message(Command('add_studio'))
 @inject
 async def add_studio_command_handler(
-    message: Message, 
-    command: CommandObject, 
+    message: Message,
+    command: CommandObject,
     state: FSMContext,
     admin_repo: AdminRepository = Provide[Container.admin_repository]
 ) -> None:
@@ -70,9 +64,7 @@ async def add_studio_command_handler(
         await message.answer(f'Ошибка ввода данных.\n {e}')
 
 
-
-## ADD ORIGIN COMMAND FLOW
-
+# ADD ORIGIN COMMAND FLOW
 
 class AddOrigin(StatesGroup):
     adding_title_ru = State()
@@ -88,14 +80,14 @@ async def add_origin_command(message: Message, state: FSMContext):
 
 
 @router.message(AddOrigin.adding_title_ru)
-async def title_ru_added(message: Message, state: FSMContext):
+async def origin_title_ru_added(message: Message, state: FSMContext):
     await state.update_data(title_ru=message.text)
     await message.answer("На английском",)
     await state.set_state(AddOrigin.adding_title_en)
 
 
 @router.message(AddOrigin.adding_title_en)
-async def title_en_added(message: Message, state: FSMContext):
+async def origin_title_en_added(message: Message, state: FSMContext):
     await state.update_data(title_en=message.text)
     origin = await state.get_data()
 
@@ -109,7 +101,7 @@ async def title_en_added(message: Message, state: FSMContext):
 
 @router.message(AddOrigin.approve_result, F.text.lower() == 'да')
 @inject
-async def approve_result(
+async def approve_origin(
     message: Message,
     state: FSMContext,
     admin_repo: AdminRepository = Provide[Container.admin_repository]
@@ -124,8 +116,7 @@ async def approve_result(
     await state.clear()
 
 
-## ADD SEASON COMMAND flow
-
+# ADD SEASON COMMAND flow
 
 class AddSeason(StatesGroup):
     enter_origin_name = State()
@@ -139,7 +130,7 @@ class AddSeason(StatesGroup):
 @router.message(Command("add_season"))
 async def add_season_command(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer("Введите точное название первоисточника (/origins для справки)",)
+    await message.answer("Введите точное название первоисточника (/origins для справки)")
     await state.set_state(AddSeason.enter_origin_name)
 
 
@@ -160,7 +151,10 @@ async def title_ru_added(message: Message, state: FSMContext):
 @router.message(AddSeason.adding_title_en)
 async def title_en_added(message: Message, state: FSMContext):
     await state.update_data(title_en=message.text)
-    await message.answer("В каком статусе находится сезон?\nВарианты: announced, ongoing, released",)
+    await message.answer(
+        "В каком статусе находится сезон?\n"
+        "Варианты: announced, ongoing, released"
+    )
     await state.set_state(AddSeason.season_status)
 
 
@@ -190,7 +184,7 @@ async def season_cover_added(message: Message, state: FSMContext):
 
 @router.message(AddSeason.approve_result, F.text.lower() == 'да')
 @inject
-async def approve_result(
+async def approve_season(
     message: Message,
     state: FSMContext,
     admin_repo: AdminRepository = Provide[Container.admin_repository],
@@ -208,12 +202,11 @@ async def approve_result(
         await admin_repo.commit()
         await message.answer("Добавлено")
     except SQLAlchemyError:
-            await message.answer('Ошибка ввода данных')
+        await message.answer('Ошибка ввода данных')
     await state.clear()
 
 
 # ADD DUBBED SEASON COMMAND FLOW
-
 
 class AddDubbedSeason(StatesGroup):
     season_name = State()
@@ -223,16 +216,18 @@ class AddDubbedSeason(StatesGroup):
 @router.message(Command("add_dubbed_season"))
 async def add_dubbed_season_command(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer(text="Введите точное название сезона аниме на русском",)
+    await message.answer(text="Введите точное название сезона аниме на русском")
     await state.set_state(AddDubbedSeason.season_name)
 
 
 @router.message(AddDubbedSeason.season_name)
 async def got_season_name(message: Message, state: FSMContext):
     await state.update_data(season_name=message.text)
-    await message.answer(text="Студии озвучки, каждую с новой строки:\n"
-                              "AniLibria, JAM CLUB, SHIZA Project, AnimeVost, Субтитры, "
-                              "Студийная Банда, Dream Cast, AniDUB, AniRise, #subscribe_on_first")
+    await message.answer(
+        text="Студии озвучки, каждую с новой строки:\n"
+             "AniLibria, JAM CLUB, SHIZA Project, AnimeVost, Субтитры, "
+             "Студийная Банда, Dream Cast, AniDUB, AniRise, #subscribe_on_first"
+    )
     await state.set_state(AddDubbedSeason.studio)
 
 
@@ -244,7 +239,7 @@ async def create_dubbed_seasons(
     admin_repo: AdminRepository = Provide[Container.admin_repository],
 ):
     """
-    Получает студии озвучки через запятую и создает DubbedSeason с каждой из них
+    Получает студии озвучки через запятую и создает DubbedSeason с каждой из них.
     """
 
     data = await state.get_data()
@@ -254,7 +249,7 @@ async def create_dubbed_seasons(
         season = await admin_repo.get_season_by_name(data['season_name'])
         for studio in studios:
             admin_repo.add_dubbed_season(season.id, season.title_ru, studio)
-    
+
         await admin_repo.commit()
         await message.answer('Добавлено')
     except IntegrityError:
@@ -274,14 +269,14 @@ class UpdateSeasonStatus(StatesGroup):
 @router.message(Command("update_status"))
 async def update_status_command(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer("Название сезона на русском?",)
+    await message.answer("Название сезона на русском?")
     await state.set_state(UpdateSeasonStatus.enter_season_name)
 
 
 @router.message(UpdateSeasonStatus.enter_season_name)
 async def title_ru_entered(message: Message, state: FSMContext):
     await state.update_data(season_name=message.text)
-    await message.answer("Статус сезона? announced, ongoing, released",)
+    await message.answer("Статус сезона? announced, ongoing, released")
     await state.set_state(UpdateSeasonStatus.update_status)
 
 
@@ -290,12 +285,12 @@ async def title_ru_entered(message: Message, state: FSMContext):
 async def update_season_status(
     message: Message,
     state: FSMContext,
-    admin_repo: AdminRepository = Provide[Container.admin_repository]
+    admin_repo: AdminRepository = Provide[Container.admin_repository],
 ):
     data = await state.get_data()
     try:
         await admin_repo.update_season_status(season_name=data['season_name'], status=message.text.lower())
-        await message.answer("Обновлено",)
+        await message.answer("Обновлено")
     except SQLAlchemyError:
         await message.answer('Ошибка, проверьте данные')
     await state.clear()
@@ -303,17 +298,16 @@ async def update_season_status(
 
 # DB query commands [Origin]
 
-
 @router.message(Command('origins'))
 @inject
 async def get_all_origins_handler(
-    message: Message, 
+    message: Message,
     state: FSMContext,
     admin_repo: AdminRepository = Provide[Container.admin_repository],
 ):
     await state.clear()
 
-    origins = ['{} ({})'.format(o.title_ru, o.title_en) 
+    origins = ['{} ({})'.format(o.title_ru, o.title_en)
                for o in await admin_repo.origin_list()]
     content = as_marked_section(Bold("Список первоисточников:"), *origins, marker="▫️ ")
     await message.answer(**content.as_kwargs())

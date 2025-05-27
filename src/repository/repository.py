@@ -1,13 +1,18 @@
 import logging
 
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import select, func, alias, update, or_
-from sqlalchemy.orm import joinedload, selectinload
-
 from transliterate import translit
 
-from .orm_models import Origin, User, Season, VoiceoverStudio, DubbedSeason, Episode, SeasonStatus
+from .orm_models import (
+    DubbedSeason,
+    Episode,
+    Origin,
+    Season,
+    SeasonStatus,
+    User,
+    VoiceoverStudio,
+)
 
 
 class UsersRepository:
@@ -30,7 +35,7 @@ class UsersRepository:
         result = await self._session.execute(query)
 
         return result.scalars().all()
-    
+
     async def subscribed_on_first_dubb_users_ids(self, season_name: str) -> list[int]:
         res = await self._session.execute(
             select(User.id)
@@ -50,7 +55,7 @@ class UsersRepository:
 class AdminRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
-    
+
     async def commit(self):
         try:
             await self._session.commit()
@@ -78,9 +83,7 @@ class AdminRepository:
         self._session.add(new_season)
 
     def add_dubbed_season(self, season_id, season_name, studio_name):
-        season_with_studio = DubbedSeason(season_id=season_id, 
-                                          studio_name=studio_name, 
-                                          season_name=season_name)
+        season_with_studio = DubbedSeason(season_id=season_id, studio_name=studio_name, season_name=season_name)
         self._session.add(season_with_studio)
         return season_with_studio
 
@@ -92,19 +95,23 @@ class AdminRepository:
     async def update_season_status(self, season_name, status):
         stmt = update(Season).where(Season.title_ru == season_name).values(status=status)
         await self._session.execute(stmt)
-    
+
     async def get_season_by_name(self, season_name: str):
         res = await self._session.execute(
             select(Season)
             .where(Season.title_ru == season_name)
         )
         return res.scalar_one_or_none()
-    
-    async def get_dubbed_season_by_season_and_studio_name(self, season_name: str, studio_name: str) -> DubbedSeason:
+
+    async def get_dubbed_season_by_season_and_studio_name(
+        self,
+        season_name: str,
+        studio_name: str
+    ) -> DubbedSeason | None:
         res = await self._session.execute(
             select(DubbedSeason)
             .where(
-                DubbedSeason.season.has(title_ru=season_name), 
+                DubbedSeason.season.has(title_ru=season_name),
                 DubbedSeason.studio_name == studio_name
             )
         )
@@ -145,11 +152,10 @@ class AnimeRepository:
             .where(Season.title_ru == season_name)
         )
         return res.scalar_one_or_none()
-    
+
     async def get_season_by_id(self, season_id: int) -> Season:
         return await self._session.get(Season, season_id)
 
-    #change name
     async def get_dubbed_season_by_season_and_studio_name(self, season_name: str, studio_name: str) -> DubbedSeason:
         res = await self._session.execute(
             select(DubbedSeason)
@@ -164,7 +170,7 @@ class AnimeRepository:
         return await self._session.get(DubbedSeason, season_studio_id)
 
     async def get_seasons_by_query(self, user_query: str) -> list[Season]:
-        
+
         def make_query(user_query):
             return (
                 select(Season)
@@ -183,13 +189,12 @@ class AnimeRepository:
                     Season.status != SeasonStatus.RELEASED
                 )
             )
-        
+
         query = make_query(user_query)
-        # print(query.compile()) # 
         result = await self._session.execute(query)
         frozen = result.freeze()
-        
-        # если пользователь 
+
+        # если пользователь
         if not frozen().scalars().all():
             query = make_query(translit(user_query, language_code='ru', reversed=True))
             result = await self._session.execute(query)
@@ -200,7 +205,7 @@ class AnimeRepository:
         query = (
             select(Episode.id)
             .join(DubbedSeason)
-            .where(Episode.episode_number == episode_number, 
+            .where(Episode.episode_number == episode_number,
                    DubbedSeason.season_name == season_name)
             .limit(1)
         )

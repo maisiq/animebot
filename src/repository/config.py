@@ -2,9 +2,14 @@ import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncEngine, create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
-from src.repository.orm_models import Base
+from .orm_models import Base
 
 
 class DatabaseManager:
@@ -16,21 +21,20 @@ class DatabaseManager:
         if url:
             self._engine = create_async_engine(url, echo=True)
         else:
-            self._engine = create_async_engine(os.environ.get('DB_URI'))
+            self._engine = create_async_engine(os.getenv('DB_URI'))
         self._db_session = async_sessionmaker(self._engine, expire_on_commit=False)
 
     async def create_all(self):
         if self._engine is None:
-            raise NotImplemented
+            raise NotImplementedError
 
         async with self._engine.connect() as conn:
-        # await conn.run_sync(Base.metadata.drop_all)
             await conn.run_sync(Base.metadata.create_all)
             await conn.commit()
 
     async def drop_all(self):
         if self._engine is None:
-            raise NotImplemented
+            raise NotImplementedError
 
         async with self._engine.connect() as conn:
             await conn.run_sync(Base.metadata.drop_all)

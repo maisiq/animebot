@@ -6,13 +6,13 @@ from aiogram.enums import ParseMode
 from dependency_injector import containers, providers
 from dotenv import load_dotenv
 
-from src.repository.config import get_session_di
-from src.repository.repository import AdminRepository, AnimeRepository, UsersRepository
+from repository.config import get_session_di
+from repository.repository import AdminRepository, AnimeRepository, UsersRepository
 
 # load env variables
 load_dotenv()
 
-TOKEN = getenv("TOKEN")
+TOKEN = getenv("TELEGRAM_TOKEN")
 
 dp = Dispatcher()
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))

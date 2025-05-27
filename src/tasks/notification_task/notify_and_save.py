@@ -1,18 +1,15 @@
 import asyncio
 import logging
 
-from sqlalchemy.exc import SQLAlchemyError
-from dependency_injector.wiring import Provide, inject
-
-from aiogram.utils.markdown import hide_link
 from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramForbiddenError
+from aiogram.utils.markdown import hide_link
+from dependency_injector.wiring import Provide, inject
+from sqlalchemy.exc import SQLAlchemyError
 
-
-from src.tasks.scrapping_task.modelsDTO import AnimeEpisode
-from src.repository.repository import AdminRepository, AnimeRepository, UsersRepository
-from src.repository.orm_models import DubbedSeason, Season
-from src.config import bot, Container
+from config import Container, bot
+from repository.orm_models import DubbedSeason, Season
+from repository.repository import AdminRepository, AnimeRepository, UsersRepository
+from tasks.scrapping_task.modelsDTO import AnimeEpisode
 
 
 @inject
@@ -30,15 +27,17 @@ async def new_episode_worker(
             continue
 
         try:
-            dubbed_season = await anime_repo.get_dubbed_season_by_season_and_studio_name(season.title_ru, new_episode.studio_name)
+            dubbed_season = await anime_repo.get_dubbed_season_by_season_and_studio_name(
+                season.title_ru,
+                new_episode.studio_name,
+            )
             if dubbed_season:
                 await notify_users(season, new_episode, dubbed_season)
-                # заменить коммит на флаш и вынести коммит и добавлять эпизод до уведомлений?
                 await add_new_episode(dubbed_season, new_episode)
             else:
                 await create_dubbed_season(season, new_episode)
         except SQLAlchemyError as e:
-            logging.error(new_episode)
+            logging.error(new_episode, e)
 
         queue.task_done()
 
@@ -66,7 +65,7 @@ async def add_new_episode(
 
 @inject
 async def notify_users(
-    season: Season, 
+    season: Season,
     new_episode: AnimeEpisode,
     dubbed_season: DubbedSeason,
     anime_repo: AnimeRepository = Provide[Container.anime_repository],
@@ -82,8 +81,8 @@ async def notify_users(
     for user_id in set(users_ids):
         try:
             await bot.send_message(
-                user_id, 
-                f'Вышел новый эпизод аниме:\n' 
+                user_id,
+                f'Вышел новый эпизод аниме:\n'
                 f'<b>{season.title_ru}</b>\n'
                 f'<b>Эпизод:</b> {new_episode.episode_number}\n'
                 f'<b>Озвучка:</b> {new_episode.studio_name}!\n'

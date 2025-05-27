@@ -1,15 +1,16 @@
-from asyncio import Queue
 import logging
+from asyncio import Queue
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
-from src.tasks.scrapping_task.utils import (get_html_from_website,
-                                            retrieve_data_from_last_update_item,
-                                            get_saved_episode_list,
-                                            update_storage_list)
-from src.tasks.scrapping_task.modelsDTO import AnimeEpisode
-
+from tasks.scrapping_task.modelsDTO import AnimeEpisode
+from tasks.scrapping_task.utils import (
+    get_html_from_website,
+    get_saved_episode_list,
+    retrieve_data_from_last_update_item,
+    update_storage_list,
+)
 
 URL = 'https://animego.org/'
 
@@ -20,7 +21,11 @@ async def scrapper(queue: Queue):
     soup = BeautifulSoup(content, features="html.parser")
 
     # get episode list with recently updated anime
-    last_updated_blocks: list[Tag] = soup.find('div', class_='last-update-container').find_all('div', class_='media-body')
+    last_updated_blocks: list[Tag] = (
+        soup
+        .find('div', class_='last-update-container')
+        .find_all('div', class_='media-body')
+    )
 
     current_episode_list = set()
 
@@ -28,7 +33,6 @@ async def scrapper(queue: Queue):
         info = retrieve_data_from_last_update_item(block)
         new_episode = AnimeEpisode.model_validate(info)
         current_episode_list.add(new_episode)
-        
 
     # get saved scrapped data from last time
     saved_episode_list = get_saved_episode_list()
@@ -43,4 +47,3 @@ async def scrapper(queue: Queue):
         # сохранить новые эпизоды в локальный файл
         update_storage_list(current_episode_list)
         logging.info(f'Найдены новые серии: {new_series}')
-
