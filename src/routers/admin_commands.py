@@ -1,3 +1,4 @@
+import aiohttp
 from aiogram import F, Router
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandObject
@@ -12,6 +13,7 @@ from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 from config import Container
 from repository.repository import AdminRepository
 from routers.middleware import IsAdminMiddleware
+from tasks.scrapping_task.scrapper import URL
 
 router = Router()
 router.message.middleware(IsAdminMiddleware())
@@ -37,6 +39,7 @@ async def list_commands_handler(message: Message):
         "/update_status - обновить статус сезона\n"
         "/origins - список с первоисточниками\n"
         "/studios - список студий озвучки\n"
+        "/set_scrapper_url https://new-example.com/ - установить новое значение\n"
         "отмена - для отмены текущей операции"
     )
 
@@ -325,3 +328,24 @@ async def get_all_studios_handler(
     studios = [o.name for o in await admin_repo.studios_list()]
     content = as_marked_section(Bold("Список студий озвучки:"), *studios, marker="▫️ ")
     await message.answer(**content.as_kwargs())
+
+
+@router.message(Command('set_scrapper_url'))
+async def set_scrapper_url(
+    message: Message,
+    state: FSMContext,
+):
+    await state.clear()
+
+    global URL
+    _, new_url = message.text.split()
+
+    if not new_url.startswith('https://'):
+        await message.answer(f'Ошибка, текущее значение: {URL}')
+        return
+    async with aiohttp.ClientSession() as session:
+        async with session.get(new_url) as response:
+            if response.status != 200:
+                await message.answer(f'Не удается выполнить успешный запрос, {response.status=}')
+            URL = new_url
+            await message.answer(f'Ссылка успешно обновлена: {URL}')
