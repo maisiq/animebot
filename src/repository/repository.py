@@ -47,6 +47,10 @@ class UsersRepository:
         users = await self._session.execute(select(User))
         return users.scalars().all()
 
+    async def get_admins(self) -> list[User]:
+        users = await self._session.execute(select(User).where(User.is_admin.is_(True)))
+        return users.scalars().all()
+
     def add(self, user_id):
         user = User(id=user_id)
         self._session.add(user)
