@@ -1,9 +1,13 @@
 import json
+import logging
 import os
 
 import aiohttp
 from bs4.element import Tag
+from dependency_injector.wiring import Provide, inject
 
+from config import Container, bot
+from repository.repository import UsersRepository
 from tasks.scrapping_task.modelsDTO import AnimeEpisode
 
 
@@ -35,7 +39,19 @@ def get_saved_episode_list():
         return saved_episode_list
 
 
-async def get_html_from_website(url):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            return await resp.text()
+@inject
+async def get_html_from_website(url: str, repo: UsersRepository = Provide[Container.user_repository]):
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                return await resp.text()
+    except aiohttp.ClientConnectionError as e:
+        logging.error(e)
+        admins = await repo.get_admins()
+
+        for a in admins:
+            await bot.send_message(
+                a.id,
+                f'Ошибка подключения к источнику парсинга - {url}\n'
+                f'Подробнее: {str(e)}'
+            )
