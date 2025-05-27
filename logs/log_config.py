@@ -3,6 +3,8 @@ import sys
 
 
 class LogFormatter(logging.Formatter):
+    """Colorful log formatter"""
+
     grey = "\x1b[38;21m"
     yellow = "\x1b[33;21m"
     red = "\x1b[31;21m"
@@ -24,7 +26,7 @@ class LogFormatter(logging.Formatter):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt, datefmt='%Y-%m-%d %H:%M:%S')
         return formatter.format(record)
-    
+
 
 def setup_logger(file_logger: bool = True):
     logging.getLogger('apscheduler').setLevel(logging.WARNING)

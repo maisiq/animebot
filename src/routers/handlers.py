@@ -1,29 +1,28 @@
 import logging
 
-from aiogram import html, F, Router
-from aiogram.utils.keyboard import ReplyKeyboardBuilder, KeyboardButton, InlineKeyboardBuilder, InlineKeyboardButton
-from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart, Command, CommandObject
-from aiogram.types import Message, PhotoSize, BufferedInputFile, CallbackQuery, URLInputFile
-from aiogram.filters import StateFilter
+from aiogram import F, Router
+from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import StatesGroup, State
-from aiogram.utils.formatting import as_list, as_marked_section, Bold
-from aiogram.utils.markdown import hide_link
-
-from dependency_injector.wiring import Provide, inject, Closing
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import CallbackQuery, Message, URLInputFile
+from aiogram.utils.formatting import as_marked_section
+from aiogram.utils.keyboard import (
+    InlineKeyboardBuilder,
+    InlineKeyboardButton,
+    KeyboardButton,
+    ReplyKeyboardBuilder,
+)
+from dependency_injector.wiring import Provide, inject
 from sqlalchemy.exc import SQLAlchemyError
 
+from config import Container
 from repository.orm_models import DubbedSeason
-from src.repository.repository import UsersRepository, AnimeRepository
-from .middleware import IsUserExistsMiddleware
-from ..config import bot, Container
+from repository.repository import AnimeRepository, UsersRepository
 
 router = Router()
-# router.message.middleware(IsUserExistsMiddleware())
+
 
 # START COMMAND
-
 
 @router.message(CommandStart())
 @inject
@@ -49,9 +48,11 @@ async def command_start_handler(
     await message.answer(
         f"Привет, {message.from_user.full_name}!\n"
         "Узнавай первым о выходе новых эпизодов аниме в любимой озвучке! "
-        "Воспользуйся меню и подпишись на уведомления 😉", 
-        reply_markup=ReplyKeyboardBuilder(kb).as_markup(resize_keyboard=True, 
-                                                        input_field_placeholder="Выберите один из пунктов меню")
+        "Воспользуйся меню и подпишись на уведомления 😉",
+        reply_markup=ReplyKeyboardBuilder(kb).as_markup(
+            resize_keyboard=True,
+            input_field_placeholder="Выберите один из пунктов меню",
+        )
     )
 
 
@@ -60,8 +61,8 @@ async def command_start_handler(
 
 @router.message(F.text.lower() == 'мои подписки')
 @inject
-async def any_message_handler(
-    message: Message, 
+async def user_subscription_handler(
+    message: Message,
     state: FSMContext,
     user_repository: UsersRepository = Provide[Container.user_repository],
 ) -> None:
@@ -76,7 +77,7 @@ async def any_message_handler(
 
     seasons = [
         f'[Выход самой первой] {sub.season_name}' if sub.studio_name == '#subscribe_on_first'
-        else  f'[{sub.studio_name}] {sub.season_name}'
+        else f'[{sub.studio_name}] {sub.season_name}'
         for sub in subscriptions
     ]
     if seasons:
@@ -88,18 +89,13 @@ async def any_message_handler(
 
 # UNSUBSCRIBE
 
-# def create_subscribed_season_button(sub: DubbedSeason):
-#     if sub.studio_name == '#subscribe_on_first':
-#         return [InlineKeyboardButton(text=f'[Выход самой первой] {sub.season_name}', callback_data=str(sub.id))]
-#     return [InlineKeyboardButton(text=f'[{sub.studio_name}] {sub.season_name}', callback_data=str(sub.id))]
-
 def create_subscribed_season_buttons(subscriptions: list[DubbedSeason]) -> list[InlineKeyboardButton]:
     buttons = []
 
     for sub in subscriptions:
         if sub.studio_name == '#subscribe_on_first':
             buttons.append(
-                [InlineKeyboardButton(text=f'[Выход самой первой] {sub.season_name}',callback_data=str(sub.id))]
+                [InlineKeyboardButton(text=f'[Выход самой первой] {sub.season_name}', callback_data=str(sub.id))]
             )
         else:
             buttons.append(
@@ -117,7 +113,7 @@ class Unsubscribe(StatesGroup):
 
 @router.message(F.text.lower() == 'отменить подписку')
 @inject
-async def any_message_handler(
+async def cancel_subscription_handler(
     message: Message,
     state: FSMContext,
     user_repo: UsersRepository = Provide[Container.user_repository],
@@ -143,9 +139,9 @@ async def any_message_handler(
 @router.callback_query(Unsubscribe.unsubcribe)
 @inject
 async def unsubscribe_season_handler(
-    callback: CallbackQuery, 
+    callback: CallbackQuery,
     anime_repo: AnimeRepository = Provide[Container.anime_repository],
-    user_repo: UsersRepository = Provide[Container.user_repository]
+    user_repo: UsersRepository = Provide[Container.user_repository],
 ) -> None:
     user = await user_repo.get_user_by_id(callback.message.chat.id)
 
@@ -154,7 +150,7 @@ async def unsubscribe_season_handler(
     else:
         season = await anime_repo.get_dubbed_season_by_id(int(callback.data))
         user.unsubscribe(season)
-    await user_repo.commit()  
+    await user_repo.commit()
 
     # refresh user's subs
     user = await user_repo.get_user_by_id(callback.message.chat.id)
@@ -177,7 +173,6 @@ async def unsubscribe_season_handler(
 
 # SUBSCRIBE FLOW
 
-
 class Subscribe(StatesGroup):
     enter_title = State()
     choosing_season = State()
@@ -193,11 +188,12 @@ async def subsribe_flow_handler(message: Message, state: FSMContext) -> None:
 
 @router.message(Subscribe.enter_title)
 @inject
-async def subsribe_query_handler(message: Message, 
-                                 state: FSMContext,
-                                 user_repo: AnimeRepository = Provide[Container.anime_repository]
+async def subsribe_query_handler(
+    message: Message,
+    state: FSMContext,
+    user_repo: AnimeRepository = Provide[Container.anime_repository],
 ) -> None:
-    ''' Список доступных аниме по запросу '''
+    '''Список доступных аниме по запросу.'''
 
     seasons = await user_repo.get_seasons_by_query(message.text)
     buttons = [
@@ -206,7 +202,10 @@ async def subsribe_query_handler(message: Message,
     ]
     builder = InlineKeyboardBuilder(buttons)
     if buttons:
-        await message.answer(f'Вот что мне удалось найти по запросу "{message.text}":', reply_markup=builder.as_markup())
+        await message.answer(
+            f'Вот что мне удалось найти по запросу "{message.text}":',
+            reply_markup=builder.as_markup(),
+        )
         await state.set_state(Subscribe.choosing_season)
     else:
         await message.answer('Ничего не найдено. Попробуйте ввести по-другому')
@@ -219,8 +218,8 @@ async def any_message_handler(
     state: FSMContext,
     anime_repo: AnimeRepository = Provide[Container.anime_repository]
 ) -> None:
-    ''' выводит аниме со списком доступных озвучек '''
-    
+    '''Выводит аниме со списком доступных озвучек.'''
+
     season = await anime_repo.get_season_by_id(int(callback.data))
     dubbed_seasons = await anime_repo.get_dubbed_seasons_by_season_id(int(callback.data))
 
@@ -243,22 +242,24 @@ async def any_message_handler(
         await callback.message.answer_photo(
             photo=URLInputFile(season.cover),
             caption=season.title_ru,
-            reply_markup=builder.as_markup()
+            reply_markup=builder.as_markup(),
         )
         await state.set_state(Subscribe.choosing_voiceover_studio)
     else:
-        await callback.message.answer('В данный момент список озвучек пуст :(\n'
-                                      'Пожалуйста, сообщите об этом - @maisiq')
+        await callback.message.answer(
+            'В данный момент список озвучек пуст :(\n'
+            'Пожалуйста, сообщите об этом - @maisiq'
+        )
 
 
 @router.callback_query(Subscribe.choosing_voiceover_studio)
 @inject
 async def add_subscribiton_handler(
-    callback: CallbackQuery,  
+    callback: CallbackQuery,
     user_repo: UsersRepository = Provide[Container.user_repository],
     anime_repo: AnimeRepository = Provide[Container.anime_repository],
 ) -> None:
- 
+
     season = await anime_repo.get_dubbed_season_by_id(int(callback.data))
     user = await user_repo.get_user_by_id(callback.message.chat.id)
 
@@ -272,18 +273,20 @@ async def add_subscribiton_handler(
         except SQLAlchemyError:
             await callback.answer('❌ Произошла ошибка, повторите попытку немного позже', show_alert=True)
 
+
 # should be last handler
 
 @router.message()
 @inject
-async def command_start_handler(
-    message: Message, 
-) -> None:
+async def default_text_handler(message: Message) -> None:
     kb = [
         [KeyboardButton(text="Подписаться на аниме")],
-        [KeyboardButton(text="Мои подписки"), KeyboardButton(text="Отменить подписку")]
+        [KeyboardButton(text="Мои подписки"), KeyboardButton(text="Отменить подписку")],
     ]
     await message.answer(
-        'Воспользуйтесь меню', 
-        reply_markup=ReplyKeyboardBuilder(kb).as_markup(resize_keyboard=True, input_field_placeholder="Выберите один из пунктов меню")
-    ) 
+        'Воспользуйтесь меню',
+        reply_markup=ReplyKeyboardBuilder(kb).as_markup(
+            resize_keyboard=True,
+            input_field_placeholder='Выберите один из пунктов меню',
+        )
+    )

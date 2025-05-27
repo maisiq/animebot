@@ -1,12 +1,10 @@
-import os
 import json
+import os
 
 import aiohttp
-
 from bs4.element import Tag
 
-from src.tasks.scrapping_task.modelsDTO import AnimeEpisode
-
+from tasks.scrapping_task.modelsDTO import AnimeEpisode
 
 
 def retrieve_data_from_last_update_item(item: Tag):
@@ -19,13 +17,13 @@ def retrieve_data_from_last_update_item(item: Tag):
         'episode_number': int(episode_number),
         'studio_name': studio_name
     }
-    # AnimeEpisode.model_validate(info)
 
 
 def update_storage_list(current_episode_list: list[AnimeEpisode]):
     with open('src/tasks/scrapping_task/last_updated.json', 'w+', encoding='utf-8') as f:
         python_data = [episode.model_dump() for episode in current_episode_list]
         json.dump(python_data, f, indent=3, ensure_ascii=False)
+
 
 def get_saved_episode_list():
     with open('src/tasks/scrapping_task/last_updated.json', 'r', encoding='utf-8') as f:
