@@ -18,6 +18,9 @@ URL = 'https://animego.org/'
 async def scrapper(queue: Queue):
     content = await get_html_from_website(URL)
 
+    if not content:
+        return
+
     soup = BeautifulSoup(content, features="html.parser")
 
     # get episode list with recently updated anime
