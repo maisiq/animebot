@@ -12,10 +12,11 @@ from tasks.scrapping_task.utils import (
     update_storage_list,
 )
 
-URL = 'https://animego.org/'
+URL = 'https://animego.me/'
 
 
-async def scrapper(queue: Queue):
+async def scrapper(log: logging.Logger, queue: Queue):
+    log.info("Starting scrapping %s", URL)
     content = await get_html_from_website(URL)
 
     if not content:
@@ -26,15 +27,17 @@ async def scrapper(queue: Queue):
     # get episode list with recently updated anime
     last_updated_blocks: list[Tag] = (
         soup
-        .find('div', class_='last-update-container')
-        .find_all('div', class_='media-body')
+        .find('div', class_='updates-body')
+        .find_all('a', class_='aw-item')
     )
 
     current_episode_list = set()
 
     for block in last_updated_blocks:
-        info = retrieve_data_from_last_update_item(block)
-        new_episode = AnimeEpisode.model_validate(info)
+        data = retrieve_data_from_last_update_item(block)
+        if not data:
+            continue
+        new_episode = AnimeEpisode.model_validate(data)
         current_episode_list.add(new_episode)
 
     # get saved scrapped data from last time
@@ -49,4 +52,6 @@ async def scrapper(queue: Queue):
 
         # сохранить новые эпизоды в локальный файл
         update_storage_list(current_episode_list)
-        logging.info(f'Найдены новые серии: {new_series}')
+        log.info(f'Найдены новые серии: {new_series}')
+    else:
+        log.info("Новые эпизоды не найдены")

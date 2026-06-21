@@ -6,20 +6,36 @@ import aiohttp
 from bs4.element import Tag
 from dependency_injector.wiring import Provide, inject
 
-from config import Container, bot
+from bot import bot
+from container import Container
+from logger import get_logger
 from repository.repository import UsersRepository
 from tasks.scrapping_task.modelsDTO import AnimeEpisode
 
 
 def retrieve_data_from_last_update_item(item: Tag):
-    title_ru = item.find('span', class_='last-update-title').text
-    episode_number, _ = item.find('div', class_='text-truncate').text.split(' ')
-    studio_name = item.find('div', class_='text-gray-dark-6').text.strip('()')
+    log = get_logger()
+
+    title_ru: str = item.find('div', class_='aw-name').text.strip()
+    meta_info: str = item.find('div', class_='aw-meta').text.strip()
+
+    if not meta_info.startswith(("Серия", "Серии")):
+        log.warning("Мета-строка в новой серии не та, что ожидается: %s", meta_info)
+        return
+    episode_info_raw, studio_date_raw = meta_info.split("·")
+
+    episode_number_str = (
+        episode_info_raw
+        .removeprefix("Серия")
+        .removeprefix("Серии")
+        .strip()
+    )
+    studio_name, _ = studio_date_raw.split("—")
 
     return {
         'title_ru': title_ru,
-        'episode_number': int(episode_number),
-        'studio_name': studio_name
+        'episode_number': episode_number_str,
+        'studio_name': studio_name.strip(),
     }
 
 
@@ -41,12 +57,14 @@ def get_saved_episode_list():
 
 @inject
 async def get_html_from_website(url: str, repo: UsersRepository = Provide[Container.user_repository]):
+    log = get_logger()
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
                 return await resp.text()
     except aiohttp.ClientConnectionError as e:
-        logging.error(e)
+        log.error(e)
         admins = await repo.get_admins()
 
         for a in admins:

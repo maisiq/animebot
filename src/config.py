@@ -1,43 +1,23 @@
 from os import getenv
 
-from aiogram import Bot, Dispatcher
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from dependency_injector import containers, providers
-from dotenv import load_dotenv
+# Global
 
-from repository.config import get_session_di
-from repository.repository import AdminRepository, AnimeRepository, UsersRepository
+DEBUG = getenv("ANIME_DEBUG")
 
-# load env variables
-load_dotenv()
+# Bot
 
-TOKEN = getenv("TELEGRAM_TOKEN")
+BOT_TOKEN = getenv("ANIME_BOT_TOKEN")
 
-dp = Dispatcher()
-bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+_admin_list = getenv("ANIME_BOT_ADMIN_LIST")
+ADMIN_LIST = [int(s) for s in _admin_list.split(",")] if _admin_list else []
 
 
-class Container(containers.DeclarativeContainer):
-    wiring_config = containers.WiringConfiguration(
-        packages=[
-            "routers",
-            "tasks.notification_task"
-        ],
-        modules=["tasks.scrapping_task.utils"]
-    )
+# Server
 
-    session = providers.Resource(get_session_di)
+SERVER_HOST = getenv("ANIME_SERVER_HOST")
+SERVER_PORT = getenv("ANIME_SERVER_PORT")
 
-    anime_repository = providers.Factory(
-        AnimeRepository,
-        session=session
-    )
-    user_repository = providers.Factory(
-        UsersRepository,
-        session=session
-    )
-    admin_repository = providers.Factory(
-        AdminRepository,
-        session=session
-    )
+# DB
+
+DB_DSN = getenv("ANIME_DB_DSN")
+DB_SCHEMA = getenv("ANIME_DB_SCHEMA", "animealarm")

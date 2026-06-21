@@ -15,7 +15,7 @@ from aiogram.utils.keyboard import (
 from dependency_injector.wiring import Provide, inject
 from sqlalchemy.exc import SQLAlchemyError
 
-from config import Container
+from container import Container
 from repository.orm_models import DubbedSeason
 from repository.repository import AnimeRepository, UsersRepository
 

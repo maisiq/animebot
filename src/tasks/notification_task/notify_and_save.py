@@ -6,7 +6,9 @@ from aiogram.utils.markdown import hide_link
 from dependency_injector.wiring import Provide, inject
 from sqlalchemy.exc import SQLAlchemyError
 
-from config import Container, bot
+from bot import bot
+from config import ADMIN_LIST
+from container import Container
 from repository.orm_models import DubbedSeason, Season
 from repository.repository import AdminRepository, AnimeRepository, UsersRepository
 from tasks.scrapping_task.modelsDTO import AnimeEpisode
@@ -24,6 +26,11 @@ async def new_episode_worker(
         if not season:
             queue.task_done()
             logging.warning(f'Нет сезона с именем {new_episode.title_ru}')
+            for admin_id in ADMIN_LIST:
+                await bot.send_message(
+                    admin_id,
+                    f'Нет сезона с именем {new_episode.title_ru}',
+                )
             continue
 
         try:

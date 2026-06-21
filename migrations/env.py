@@ -1,11 +1,9 @@
-from logging.config import fileConfig
-from dotenv import load_dotenv
 import os
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from logging.config import fileConfig
 
 from alembic import context
+from dotenv import load_dotenv
+from sqlalchemy import engine_from_config, pool, text
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -15,7 +13,7 @@ load_dotenv()
 
 
 # config.set_main_option("DB_URI", os.environ["DB_URI"])
-config.set_main_option("DB_URI", os.environ["DB_URI"])
+config.set_main_option("DB_URI", os.environ["ANIME_DB_DSN"])
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
@@ -54,6 +52,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        version_table_schema="animealarm",
     )
 
     with context.begin_transaction():
@@ -74,8 +73,13 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS animealarm"))
+        connection.commit()
+
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            version_table_schema="animealarm",
         )
 
         with context.begin_transaction():
