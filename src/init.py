@@ -4,6 +4,7 @@ from aiohttp.web_app import Application
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from bot import dp
+from config import SCRAPPING_TASK_INTERVAL
 from container import Container
 from logger.config import get_logger
 from routers.admin_commands import router as commands_router
@@ -22,7 +23,7 @@ async def init(app: Application | None = None):
 
     # init periodic scrapping task
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(scrapper, 'interval', minutes=.1, args=[log, queue])
+    scheduler.add_job(scrapper, 'interval', minutes=float(SCRAPPING_TASK_INTERVAL), args=[log, queue])
 
     log.info("Starting scheduler")
     scheduler.start()
