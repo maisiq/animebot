@@ -1,4 +1,3 @@
-import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -13,15 +12,11 @@ from .orm_models import Base
 
 
 class DatabaseManager:
-    def __init__(self) -> None:
-        self._engine: AsyncEngine | None = None
-        self._db_session: async_sessionmaker[AsyncSession] | None = None
+    _engine: AsyncEngine | None = None
+    _db_session: async_sessionmaker[AsyncSession] | None = None
 
-    def init(self, url=None):
-        if url:
-            self._engine = create_async_engine(url, echo=True)
-        else:
-            self._engine = create_async_engine(os.getenv('DB_URI'))
+    def __init__(self, url, echo=False):
+        self._engine = create_async_engine(url, echo=echo)
         self._db_session = async_sessionmaker(self._engine, expire_on_commit=False)
 
     async def create_all(self):
@@ -46,15 +41,27 @@ class DatabaseManager:
             yield session
 
 
-sessionmanager = DatabaseManager()
+_sessionmanager: DatabaseManager | None = None
+
+
+async def init_db(url, echo=False):
+    global _sessionmanager
+    _sessionmanager = DatabaseManager(url, echo)
+    yield _sessionmanager
+    await _sessionmanager._engine.dispose()
+    _sessionmanager = None
 
 
 @asynccontextmanager
 async def get_session():
-    async with sessionmanager.session() as session:
+    if _sessionmanager is None:
+        raise RuntimeError("db is not initialized")
+    async with _sessionmanager.session() as session:
         yield session
 
 
 async def get_session_di():
-    async with sessionmanager.session() as session:
+    if _sessionmanager is None:
+        raise RuntimeError("db is not initialized")
+    async with _sessionmanager.session() as session:
         yield session

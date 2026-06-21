@@ -10,7 +10,7 @@ from aiogram.utils.markdown import hide_link
 from dependency_injector.wiring import Provide, inject
 from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 
-from config import Container
+from container import Container
 from repository.repository import AdminRepository
 from routers.middleware import IsAdminMiddleware
 from tasks.scrapping_task.scrapper import URL

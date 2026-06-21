@@ -3,7 +3,7 @@ from pydantic import BaseModel
 
 class AnimeEpisode(BaseModel):
     title_ru: str
-    episode_number: int
+    episode_number: str
     studio_name: str
 
     def __hash__(self) -> int:

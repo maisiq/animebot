@@ -9,10 +9,10 @@ from repository.repository import UsersRepository
 
 class IsAdminMiddleware(BaseMiddleware):
     async def __call__(
-            self,
-            handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
-            event: TelegramObject | Message,
-            data: Dict[str, Any],
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject | Message,
+        data: Dict[str, Any],
     ) -> Any:
         async with get_session() as session:
             user = await UsersRepository(session).get_user_by_id(event.chat.id)
