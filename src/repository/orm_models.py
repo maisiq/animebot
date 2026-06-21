@@ -6,6 +6,8 @@ from uuid import UUID, uuid4
 from sqlalchemy import BigInteger, ForeignKey, MetaData, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+# from config import DB_SCHEMA
+
 
 class SeasonStatus(str, Enum):
     RELEASED = 'released'
@@ -14,7 +16,9 @@ class SeasonStatus(str, Enum):
 
 
 class Base(DeclarativeBase):
-    metadata = MetaData()
+    metadata = MetaData(
+        schema="animealarm",
+    )
     type_annotation_map = {}
 
 
@@ -97,7 +101,7 @@ class Episode(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str | None]
-    episode_number: Mapped[int]
+    episode_number: Mapped[str]
 
     season_id: Mapped[int] = mapped_column(ForeignKey('seasons_with_studio.id', ondelete='CASCADE'))
     season: Mapped['DubbedSeason'] = relationship(back_populates='episodes')
