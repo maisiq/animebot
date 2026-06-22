@@ -9,8 +9,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from bot import bot
 from config import ADMIN_LIST
 from container import Container
+from repository import AdminRepository, AnimeRepository, UsersRepository
 from repository.orm_models import DubbedSeason, Season
-from repository.repository import AdminRepository, AnimeRepository, UsersRepository
 from tasks.scrapping_task.modelsDTO import AnimeEpisode
 
 

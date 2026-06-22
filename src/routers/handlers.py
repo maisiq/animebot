@@ -16,8 +16,8 @@ from dependency_injector.wiring import Provide, inject
 from sqlalchemy.exc import SQLAlchemyError
 
 from container import Container
+from repository import AnimeRepository, UsersRepository
 from repository.orm_models import DubbedSeason
-from repository.repository import AnimeRepository, UsersRepository
 
 router = Router()
 
