@@ -11,7 +11,7 @@ from dependency_injector.wiring import Provide, inject
 from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 
 from container import Container
-from repository.repository import AdminRepository
+from repository import AdminRepository
 from routers.middleware import IsAdminMiddleware
 from tasks.scrapping_task.scrapper import URL
 

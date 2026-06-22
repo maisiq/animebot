@@ -8,7 +8,7 @@ from dependency_injector.wiring import Provide, inject
 from bot import bot
 from container import Container
 from logger import get_logger
-from repository.repository import UsersRepository
+from repository import UsersRepository
 from tasks.scrapping_task.modelsDTO import AnimeEpisode
 
 

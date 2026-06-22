@@ -3,8 +3,8 @@ from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import Message, TelegramObject
 
+from repository import UsersRepository
 from repository.config import get_session
-from repository.repository import UsersRepository
 
 
 class IsAdminMiddleware(BaseMiddleware):
