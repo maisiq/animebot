@@ -8,8 +8,8 @@ from dependency_injector.wiring import Provide, inject
 from bot import bot
 from container import Container
 from logger import get_logger
-from repository import UsersRepository
 from tasks.scrapping_task.modelsDTO import AnimeEpisode
+from uow import UnitOfWork
 
 
 def retrieve_data_from_last_update_item(item: Tag):
@@ -55,7 +55,7 @@ def get_saved_episode_list():
 
 
 @inject
-async def get_html_from_website(url: str, repo: UsersRepository = Provide[Container.user_repository]):
+async def get_html_from_website(url: str, uow: UnitOfWork = Provide[Container.uow]):
     log = get_logger()
 
     try:
@@ -70,7 +70,8 @@ async def get_html_from_website(url: str, repo: UsersRepository = Provide[Contai
                 return await resp.text()
     except aiohttp.ClientConnectionError as e:
         log.error(e)
-        admins = await repo.get_admins()
+        async with uow:
+            admins = await uow.users.get_admins()
 
         for a in admins:
             await bot.send_message(
