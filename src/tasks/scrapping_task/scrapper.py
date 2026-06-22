@@ -4,6 +4,7 @@ from asyncio import Queue
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
+from config import SCRAPPING_TASK_URL
 from tasks.scrapping_task.modelsDTO import AnimeEpisode
 from tasks.scrapping_task.utils import (
     get_html_from_website,
@@ -12,12 +13,10 @@ from tasks.scrapping_task.utils import (
     update_storage_list,
 )
 
-URL = 'https://animego.me/'
-
 
 async def scrapper(log: logging.Logger, queue: Queue):
-    log.info("Starting scrapping %s", URL)
-    content = await get_html_from_website(URL)
+    log.info("Starting scrapping %s", SCRAPPING_TASK_URL)
+    content = await get_html_from_website(SCRAPPING_TASK_URL)
 
     if not content:
         return

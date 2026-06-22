@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 
 import aiohttp
@@ -62,6 +61,12 @@ async def get_html_from_website(url: str, repo: UsersRepository = Provide[Contai
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
+                if resp.status != 200:
+                    log.error(
+                        "failed to retrieve html from url (%s). Status code: %s. Response text: %s", 
+                        url, resp.status, await resp.text(),
+                    )
+                    return
                 return await resp.text()
     except aiohttp.ClientConnectionError as e:
         log.error(e)
