@@ -14,9 +14,6 @@ class AnimeRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
 
-    async def commit(self):
-        await self._session.commit()
-
     async def get_dubbed_seasons_by_season_id(self, season_id: int):
         result = await self._session.execute(
             select(DubbedSeason)

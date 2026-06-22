@@ -10,10 +10,11 @@ from aiogram.utils.markdown import hide_link
 from dependency_injector.wiring import Provide, inject
 from sqlalchemy.exc import IntegrityError, NoResultFound, SQLAlchemyError
 
+from config import SCRAPPING_TASK_URL
 from container import Container
 from repository import AdminRepository
 from routers.middleware import IsAdminMiddleware
-from tasks.scrapping_task.scrapper import URL
+from uow import UnitOfWork
 
 router = Router()
 router.message.middleware(IsAdminMiddleware())
@@ -52,19 +53,20 @@ async def add_studio_command_handler(
     message: Message,
     command: CommandObject,
     state: FSMContext,
-    admin_repo: AdminRepository = Provide[Container.admin_repository]
+    uow: UnitOfWork = Provide[Container.uow],
 ) -> None:
     """
     Команда получает название студии озвучки в качестве аргумента и создает объект Studio
     """
     await state.clear()
 
-    admin_repo.add_studio(command.args)
-    try:
-        await admin_repo.commit()
-        await message.answer('Студия озвучки добавлена')
-    except SQLAlchemyError as e:
-        await message.answer(f'Ошибка ввода данных.\n {e}')
+    async with uow:
+        uow.admin.add_studio(command.args)
+        try:
+            await uow.commit()
+            await message.answer('Студия озвучки добавлена')
+        except SQLAlchemyError as e:
+            await message.answer(f'Ошибка ввода данных.\n {e}')
 
 
 # ADD ORIGIN COMMAND FLOW
@@ -107,15 +109,16 @@ async def origin_title_en_added(message: Message, state: FSMContext):
 async def approve_origin(
     message: Message,
     state: FSMContext,
-    admin_repo: AdminRepository = Provide[Container.admin_repository]
+    uow: UnitOfWork = Provide[Container.uow],
 ):
     origin = await state.get_data()
-    admin_repo.add_origin(origin['title_ru'], origin['title_en'])
-    try:
-        await admin_repo.commit()
-        await message.answer('Добавлено')
-    except SQLAlchemyError:
-        await message.answer('Ошибка ввода данных')
+    async with uow:
+        uow.admin.add_origin(origin['title_ru'], origin['title_en'])
+        try:
+            await uow.commit()
+            await message.answer('Добавлено')
+        except SQLAlchemyError:
+            await message.answer('Ошибка ввода данных')
     await state.clear()
 
 
@@ -190,22 +193,24 @@ async def season_cover_added(message: Message, state: FSMContext):
 async def approve_season(
     message: Message,
     state: FSMContext,
-    admin_repo: AdminRepository = Provide[Container.admin_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ):
     anime = await state.get_data()
-    try:
-        origin = await admin_repo.get_origin_by_name(anime['origin_name'])
-        admin_repo.add_season(
+
+    async with uow:
+        origin = await uow.admin.get_origin_by_name(anime['origin_name'])
+        uow.admin.add_season(
             origin_id=origin.id,
             title_ru=anime['title_ru'],
             title_en=anime['title_en'],
             cover=anime['photo'],
             status=anime['season_status'],
         )
-        await admin_repo.commit()
-        await message.answer("Добавлено")
-    except SQLAlchemyError:
-        await message.answer('Ошибка ввода данных')
+        try:
+            await uow.commit()
+            await message.answer("Добавлено")
+        except SQLAlchemyError:
+            await message.answer('Ошибка ввода данных')
     await state.clear()
 
 
@@ -239,7 +244,7 @@ async def got_season_name(message: Message, state: FSMContext):
 async def create_dubbed_seasons(
     message: Message,
     state: FSMContext,
-    admin_repo: AdminRepository = Provide[Container.admin_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ):
     """
     Получает студии озвучки через запятую и создает DubbedSeason с каждой из них.
@@ -248,17 +253,18 @@ async def create_dubbed_seasons(
     data = await state.get_data()
     studios = message.text.strip().split('\n')
 
-    try:
-        season = await admin_repo.get_season_by_name(data['season_name'])
+    async with uow:
+        season = await uow.admin.get_season_by_name(data['season_name'])
         for studio in studios:
-            admin_repo.add_dubbed_season(season.id, season.title_ru, studio)
+            uow.admin.add_dubbed_season(season.id, season.title_ru, studio)
 
-        await admin_repo.commit()
-        await message.answer('Добавлено')
-    except IntegrityError:
-        await message.answer('Ошибка. Одной из студий озвучки нет в бд, либо сезон с такой озвучкой уже существует')
-    except NoResultFound:
-        await message.answer('Ошибка. Сезона с таким названием не существует')
+        try:
+            await uow.commit()
+            await message.answer('Добавлено')
+        except IntegrityError:
+            await message.answer('Ошибка. Одной из студий озвучки нет в бд, либо сезон с такой озвучкой уже существует')
+        except NoResultFound:
+            await message.answer('Ошибка. Сезона с таким названием не существует')
 
     await state.clear()
 
@@ -288,14 +294,16 @@ async def title_ru_entered(message: Message, state: FSMContext):
 async def update_season_status(
     message: Message,
     state: FSMContext,
-    admin_repo: AdminRepository = Provide[Container.admin_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ):
     data = await state.get_data()
-    try:
-        await admin_repo.update_season_status(season_name=data['season_name'], status=message.text.lower())
-        await message.answer("Обновлено")
-    except SQLAlchemyError:
-        await message.answer('Ошибка, проверьте данные')
+    async with uow:
+        await uow.admin.update_season_status(season_name=data['season_name'], status=message.text.lower())
+        try:
+            await uow.commit()
+            await message.answer("Обновлено")
+        except SQLAlchemyError:
+            await message.answer('Ошибка, проверьте данные')
     await state.clear()
 
 
@@ -306,14 +314,18 @@ async def update_season_status(
 async def get_all_origins_handler(
     message: Message,
     state: FSMContext,
-    admin_repo: AdminRepository = Provide[Container.admin_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ):
     await state.clear()
 
-    origins = ['{} ({})'.format(o.title_ru, o.title_en)
-               for o in await admin_repo.origin_list()]
-    content = as_marked_section(Bold("Список первоисточников:"), *origins, marker="▫️ ")
-    await message.answer(**content.as_kwargs())
+    async with uow:
+        origins = ['{} ({})'.format(o.title_ru, o.title_en)
+                for o in await uow.admin.origin_list()]
+    if origins:
+        content = as_marked_section(Bold("Список первоисточников:"), *origins, marker="▫️ ")
+        await message.answer(**content.as_kwargs())
+    else:
+        await message.answer("Источники не найдены")
 
 
 @router.message(Command('studios'))
@@ -321,11 +333,12 @@ async def get_all_origins_handler(
 async def get_all_studios_handler(
     message: Message,
     state: FSMContext,
-    admin_repo: AdminRepository = Provide[Container.admin_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ):
     await state.clear()
 
-    studios = [o.name for o in await admin_repo.studios_list()]
+    async with uow:
+        studios = [o.name for o in await uow.admin.studios_list()]
     content = as_marked_section(Bold("Список студий озвучки:"), *studios, marker="▫️ ")
     await message.answer(**content.as_kwargs())
 
@@ -337,15 +350,15 @@ async def set_scrapper_url(
 ):
     await state.clear()
 
-    global URL
+    global SCRAPPING_TASK_URL
     _, new_url = message.text.split()
 
     if not new_url.startswith('https://'):
-        await message.answer(f'Ошибка, текущее значение: {URL}')
+        await message.answer(f'Ошибка, текущее значение: {SCRAPPING_TASK_URL}')
         return
     async with aiohttp.ClientSession() as session:
         async with session.get(new_url) as response:
             if response.status != 200:
                 await message.answer(f'Не удается выполнить успешный запрос, {response.status=}')
-            URL = new_url
-            await message.answer(f'Ссылка успешно обновлена: {URL}')
+            SCRAPPING_TASK_URL = new_url
+            await message.answer(f'Ссылка успешно обновлена: {SCRAPPING_TASK_URL}')

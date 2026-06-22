@@ -2,8 +2,9 @@ from dependency_injector import containers, providers
 
 from config import DB_DSN, DEBUG
 from logger.config import setup_logger
-from repository.config import get_session_di, init_db
-from repository.repository import AdminRepository, AnimeRepository, UsersRepository
+from repository import AdminRepository, AnimeRepository, UsersRepository
+from repository.config import get_session, init_db
+from uow import UnitOfWork
 
 
 class Container(containers.DeclarativeContainer):
@@ -26,7 +27,12 @@ class Container(containers.DeclarativeContainer):
         echo=DEBUG,
     )
 
-    session = providers.Factory(get_session_di)
+    session = providers.Factory(get_session)
+
+    uow = providers.Factory(
+        UnitOfWork,
+        session=session,
+    )
 
     anime_repository = providers.Factory(
         AnimeRepository,

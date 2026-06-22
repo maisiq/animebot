@@ -1,6 +1,3 @@
-from contextlib import asynccontextmanager
-from typing import AsyncIterator
-
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -35,10 +32,8 @@ class DatabaseManager:
             await conn.run_sync(Base.metadata.drop_all)
             await conn.commit()
 
-    @asynccontextmanager
-    async def session(self) -> AsyncIterator[AsyncSession]:
-        async with self._db_session() as session:
-            yield session
+    def get_session(self) -> AsyncSession:
+       return self._db_session()  
 
 
 _sessionmanager: DatabaseManager | None = None
@@ -52,16 +47,7 @@ async def init_db(url, echo=False):
     _sessionmanager = None
 
 
-@asynccontextmanager
-async def get_session():
+def get_session():
     if _sessionmanager is None:
         raise RuntimeError("db is not initialized")
-    async with _sessionmanager.session() as session:
-        yield session
-
-
-async def get_session_di():
-    if _sessionmanager is None:
-        raise RuntimeError("db is not initialized")
-    async with _sessionmanager.session() as session:
-        yield session
+    return _sessionmanager.get_session()

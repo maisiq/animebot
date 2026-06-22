@@ -1,5 +1,3 @@
-import logging
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,14 +10,6 @@ from .orm_models import (
 class UsersRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
-
-    async def commit(self):
-        try:
-            await self._session.commit()
-        except Exception as e:
-            await self._session.rollback()
-            logging.error(e)
-            raise
 
     async def get_user_by_id(self, user_id: int):
         return await self._session.get(User, user_id)

@@ -1,5 +1,3 @@
-import logging
-
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,14 +13,6 @@ from .orm_models import (
 class AdminRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
-
-    async def commit(self):
-        try:
-            await self._session.commit()
-        except Exception as e:
-            await self._session.rollback()
-            logging.error(str(e))
-            raise
 
     def add_origin(self, title_ru: str, title_en: str):
         new_origin = Origin(title_ru=title_ru, title_en=title_en)
