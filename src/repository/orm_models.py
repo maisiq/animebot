@@ -6,8 +6,6 @@ from uuid import UUID, uuid4
 from sqlalchemy import BigInteger, ForeignKey, MetaData, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-# from config import DB_SCHEMA
-
 
 class SeasonStatus(str, Enum):
     RELEASED = 'released'
@@ -30,7 +28,7 @@ class User(Base):
     is_admin: Mapped[bool | None] = mapped_column(default=False)
     animelist: Mapped[list['DubbedSeason']] = relationship(
         back_populates='followers',
-        secondary='user_season_secondary',
+        secondary='animealarm.user_season_secondary',
         lazy='selectin',
     )
 
@@ -87,9 +85,12 @@ class DubbedSeason(Base):
     episodes: Mapped[list['Episode']] = relationship(back_populates='season')
     studio: Mapped['VoiceoverStudio'] = relationship(
         back_populates='work_with_seasons',
-        secondary='season_studio_secondary'
+        secondary='animealarm.season_studio_secondary'
     )
-    followers: Mapped[list['User']] = relationship(back_populates='animelist', secondary='user_season_secondary')
+    followers: Mapped[list['User']] = relationship(
+        back_populates='animelist', 
+        secondary='animealarm.user_season_secondary',
+    )
 
     __table_args__ = (
         UniqueConstraint('season_id', 'studio_name'),
@@ -119,7 +120,7 @@ class VoiceoverStudio(Base):
 
     work_with_seasons: Mapped[list['DubbedSeason']] = relationship(
         back_populates='studio',
-        secondary='season_studio_secondary',
+        secondary='animealarm.season_studio_secondary',
     )
 
     __table_args__ = (
