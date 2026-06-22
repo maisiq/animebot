@@ -14,8 +14,11 @@ class IsAdminMiddleware(BaseMiddleware):
         event: TelegramObject | Message,
         data: Dict[str, Any],
     ) -> Any:
-        async with get_session() as session:
-            user = await UsersRepository(session).get_user_by_id(event.chat.id)
-            if user.is_admin:
-                result = await handler(event, data)
-                return result
+        session = get_session()
+        repo = UsersRepository(session)
+        user = await repo.get_user_by_id(event.chat.id)
+        await session.close()
+        if user.is_admin:
+            result = await handler(event, data)
+            return result
+        

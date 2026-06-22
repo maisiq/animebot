@@ -1,5 +1,3 @@
-import logging
-
 from aiogram import F, Router
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
@@ -16,8 +14,8 @@ from dependency_injector.wiring import Provide, inject
 from sqlalchemy.exc import SQLAlchemyError
 
 from container import Container
-from repository import AnimeRepository, UsersRepository
 from repository.orm_models import DubbedSeason
+from uow import UnitOfWork
 
 router = Router()
 
@@ -29,7 +27,7 @@ router = Router()
 async def command_start_handler(
     message: Message,
     state: FSMContext,
-    user_repo: UsersRepository = Provide[Container.user_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ) -> None:
     await state.clear()
 
@@ -38,12 +36,12 @@ async def command_start_handler(
         [KeyboardButton(text="Мои подписки"), KeyboardButton(text="Отменить подписку")]
     ]
 
-    # добавить пользователя в бд, если он зашел впервые
-    user = await user_repo.get_user_by_id(message.chat.id)
-    if user is None:
-        user_repo.add(message.chat.id)
-        await user_repo.commit()
-        logging.info('Добавлен новый пользователь!')
+    async with uow:
+        # добавить пользователя в бд, если он зашел впервые
+        user = await uow.users.get_user_by_id(message.chat.id)
+        if user is None:
+            uow.users.add(message.chat.id)
+            await uow.commit()
 
     await message.answer(
         f"Привет, {message.from_user.full_name}!\n"
@@ -64,20 +62,21 @@ async def command_start_handler(
 async def user_subscription_handler(
     message: Message,
     state: FSMContext,
-    user_repository: UsersRepository = Provide[Container.user_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ) -> None:
     await state.clear()
 
-    user = await user_repository.get_user_by_id(message.chat.id)
+    async with uow:
+        user = await uow.users.get_user_by_id(message.chat.id)
 
-    if user:
-        subscriptions = user.animelist
-    else:
-        subscriptions = list()
+        if user:
+            subscriptions = user.animelist  # TODO: fix one more request to db
+        else:
+            subscriptions = list()
 
     seasons = [
         f'[Выход самой первой] {sub.season_name}' if sub.studio_name == '#subscribe_on_first'
-        else f'[{sub.studio_name}] {sub.season_name}'
+        else f'[{sub.studio_name}] {sub.season_name}' 
         for sub in subscriptions
     ]
     if seasons:
@@ -116,15 +115,16 @@ class Unsubscribe(StatesGroup):
 async def cancel_subscription_handler(
     message: Message,
     state: FSMContext,
-    user_repo: UsersRepository = Provide[Container.user_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ) -> None:
     await state.clear()
 
-    user = await user_repo.get_user_by_id(message.chat.id)
-    if user:
-        subscriptions = user.animelist
-    else:
-        subscriptions = list()
+    async with uow:
+        user = await uow.users.get_user_by_id(message.chat.id)
+        if user:
+            subscriptions = user.animelist  # TODO: fix one more request to db
+        else:
+            subscriptions = list()
 
     buttons = create_subscribed_season_buttons(subscriptions)
     builder = InlineKeyboardBuilder(buttons)
@@ -140,25 +140,25 @@ async def cancel_subscription_handler(
 @inject
 async def unsubscribe_season_handler(
     callback: CallbackQuery,
-    anime_repo: AnimeRepository = Provide[Container.anime_repository],
-    user_repo: UsersRepository = Provide[Container.user_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ) -> None:
-    user = await user_repo.get_user_by_id(callback.message.chat.id)
+    async with uow:
+        user = await uow.users.get_user_by_id(callback.message.chat.id)
 
-    if callback.data == '#unsubscribe_all':
-        user.unsubscribe_all()
-    else:
-        season = await anime_repo.get_dubbed_season_by_id(int(callback.data))
-        user.unsubscribe(season)
-    await user_repo.commit()
+        if callback.data == '#unsubscribe_all':
+            user.unsubscribe_all()
+        else:
+            season = await uow.anime.get_dubbed_season_by_id(int(callback.data))
+            user.unsubscribe(season)
+        await uow.commit()
 
-    # refresh user's subs
-    user = await user_repo.get_user_by_id(callback.message.chat.id)
+        # refresh user's subs
+        user = await uow.users.get_user_by_id(callback.message.chat.id)
 
-    if user:
-        subscriptions = user.animelist
-    else:
-        subscriptions = list()
+        if user:
+            subscriptions = user.animelist  # TODO: fix one more request to db
+        else:
+            subscriptions = list()
 
     buttons = create_subscribed_season_buttons(subscriptions)
     builder = InlineKeyboardBuilder(buttons)
@@ -191,11 +191,12 @@ async def subsribe_flow_handler(message: Message, state: FSMContext) -> None:
 async def subsribe_query_handler(
     message: Message,
     state: FSMContext,
-    user_repo: AnimeRepository = Provide[Container.anime_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ) -> None:
     '''Список доступных аниме по запросу.'''
+    async with uow:
+        seasons = await uow.anime.get_seasons_by_query(message.text)
 
-    seasons = await user_repo.get_seasons_by_query(message.text)
     buttons = [
         [InlineKeyboardButton(text=season.title_ru, callback_data=str(season.id))]
         for season in seasons if season
@@ -216,12 +217,12 @@ async def subsribe_query_handler(
 async def any_message_handler(
     callback: CallbackQuery,
     state: FSMContext,
-    anime_repo: AnimeRepository = Provide[Container.anime_repository]
+    uow: UnitOfWork = Provide[Container.uow],
 ) -> None:
     '''Выводит аниме со списком доступных озвучек.'''
-
-    season = await anime_repo.get_season_by_id(int(callback.data))
-    dubbed_seasons = await anime_repo.get_dubbed_seasons_by_season_id(int(callback.data))
+    async with uow:
+        season = await uow.anime.get_season_by_id(int(callback.data))
+        dubbed_seasons = await uow.anime.get_dubbed_seasons_by_season_id(int(callback.data))
 
     buttons = []
 
@@ -256,22 +257,21 @@ async def any_message_handler(
 @inject
 async def add_subscribiton_handler(
     callback: CallbackQuery,
-    user_repo: UsersRepository = Provide[Container.user_repository],
-    anime_repo: AnimeRepository = Provide[Container.anime_repository],
+    uow: UnitOfWork = Provide[Container.uow],
 ) -> None:
+    async with uow:
+        season = await uow.anime.get_dubbed_season_by_id(int(callback.data))
+        user = await uow.users.get_user_by_id(callback.message.chat.id)
 
-    season = await anime_repo.get_dubbed_season_by_id(int(callback.data))
-    user = await user_repo.get_user_by_id(callback.message.chat.id)
-
-    if user.is_subsribed(season):
-        await callback.answer('❗️ Вы уже подписаны', show_alert=True)
-    else:
-        user.subscribe(season)
-        try:
-            await user_repo.commit()
-            await callback.answer('✅ Подписка оформлена', show_alert=True)
-        except SQLAlchemyError:
-            await callback.answer('❌ Произошла ошибка, повторите попытку немного позже', show_alert=True)
+        if user.is_subsribed(season):
+            await callback.answer('❗️ Вы уже подписаны', show_alert=True)
+        else:
+            user.subscribe(season)
+            try:
+                await uow.commit()
+                await callback.answer('✅ Подписка оформлена', show_alert=True)
+            except SQLAlchemyError:
+                await callback.answer('❌ Произошла ошибка, повторите попытку немного позже', show_alert=True)
 
 
 # should be last handler
