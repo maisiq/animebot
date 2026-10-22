@@ -1,29 +1,29 @@
-FROM python:3.10.16-slim-bullseye AS python
+FROM python:3.12-slim-bookworm AS base
 
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-FROM python AS build-stage
+# --- build stage: установка зависимостей через uv по uv.lock ---
+FROM base AS build-stage
 
-ARG BUILD=dev
-
-RUN apt-get update && apt-get install -y gcc
-
-COPY ./requirements.txt /requirements.txt
-
-RUN pip wheel --wheel-dir /usr/src/app/wheels -r /requirements.txt
-
-
-FROM python AS run-stage
-
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /animeBot
 
-COPY --from=build-stage /usr/src/app/wheels /wheels/
+# Копируем только манифесты — слой пересобирается лишь при изменении зависимостей
+COPY pyproject.toml uv.lock ./
 
-RUN pip install --no-cache-dir --no-index --find-links=/wheels/ /wheels/* \
-    && rm -rf /wheels/
+# Ставим зависимости в изолированное виртуальное окружение внутри образа
+RUN uv sync --frozen --no-install-project --no-dev
+
+# --- runtime stage ---
+FROM base AS run-stage
+
+WORKDIR /animeBot
+
+COPY --from=build-stage /animeBot/.venv /animeBot/.venv
+ENV PATH="/animeBot/.venv/bin:$PATH"
 
 COPY . .
 
