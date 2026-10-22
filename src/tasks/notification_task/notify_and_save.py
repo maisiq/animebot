@@ -1,5 +1,4 @@
 import asyncio
-import logging
 
 from aiogram.enums import ParseMode
 from aiogram.utils.markdown import hide_link
@@ -10,9 +9,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from bot import bot
 from config import ADMIN_LIST
 from container import Container
+from logger import get_logger
 from repository.orm_models import DubbedSeason, Season
 from tasks.scrapping_task.modelsDTO import AnimeEpisode
 from uow import UnitOfWork
+
+log = get_logger(__name__)
 
 
 @inject
@@ -28,7 +30,7 @@ async def new_episode_worker(
             season = await uow.anime.get_season_by_name(new_episode.title_ru)
             if not season:
                 queue.task_done()
-                logging.warning(f'Нет сезона с именем {new_episode.title_ru}')
+                log.warning("season_not_found", title=new_episode.title_ru)
                 for admin_id in ADMIN_LIST:
                     await bot.send_message(
                         admin_id,
@@ -47,7 +49,12 @@ async def new_episode_worker(
                 else:
                     await create_dubbed_season(season, new_episode)
             except SQLAlchemyError as e:
-                logging.error(new_episode, e)
+                log.error(
+                    "db_error_while_processing_episode",
+                    episode=new_episode.episode_number,
+                    title=new_episode.title_ru,
+                    exc_info=e,
+                )
 
         queue.task_done()
 
@@ -72,7 +79,12 @@ async def add_new_episode(
     async with uow:
         uow.admin.add_episode(episode_number=episode.episode_number, season_id=dubbed_season.id)
         await uow.commit()
-        logging.info('Эпизод ({}) {} [{}] добавлен'.format(episode.episode_number, episode.title_ru, episode.studio_name))
+        log.info(
+            "episode_added",
+            episode=episode.episode_number,
+            title=episode.title_ru,
+            studio=episode.studio_name,
+        )
 
 
 @inject
@@ -102,5 +114,5 @@ async def notify_users(
                 parse_mode=ParseMode.HTML
             )
         except Exception as e:
-            logging.error(e)
+            log.warning("notification_failed", user_id=user_id, exc_info=e)
             continue

@@ -4,7 +4,10 @@ from aiohttp.web_request import Request
 
 from bot import bot, dp
 from config import SERVER_HOST, SERVER_PORT
+from logger import get_logger
 from init import init
+
+log = get_logger(__name__)
 
 
 async def handle(request: Request):
@@ -14,7 +17,7 @@ async def handle(request: Request):
             update = Update(**update_data)
             await dp.feed_update(bot, update)
         except Exception as e:
-            print("Failed to process new updates: ", str(e))
+            log.error("webhook_update_failed", exc_info=e)
             return web.json_response({"statusCode": 400, "body": "bad request"})
     return web.json_response({"statusCode": 200, "body": "ok"})
 

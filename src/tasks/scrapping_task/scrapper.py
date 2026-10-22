@@ -1,10 +1,10 @@
-import logging
 from asyncio import Queue
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 from config import SCRAPPING_TASK_URL
+from logger import get_logger
 from tasks.scrapping_task.modelsDTO import AnimeEpisode
 from tasks.scrapping_task.utils import (
     get_html_from_website,
@@ -13,9 +13,11 @@ from tasks.scrapping_task.utils import (
     update_storage_list,
 )
 
+log = get_logger(__name__)
 
-async def scrapper(log: logging.Logger, queue: Queue):
-    log.info("Starting scrapping %s", SCRAPPING_TASK_URL)
+
+async def scrapper(queue: Queue):
+    log.info("scrapping_started", url=SCRAPPING_TASK_URL)
     content = await get_html_from_website(SCRAPPING_TASK_URL)
 
     if not content:
@@ -47,10 +49,13 @@ async def scrapper(log: logging.Logger, queue: Queue):
 
     if new_series:
         # добавить новые эпизоды в очередь на рассылку уведомлений
-        [await queue.put(episode) for episode in new_series]
+        for episode in new_series:
+            await queue.put(episode)
 
         # сохранить новые эпизоды в локальный файл
         update_storage_list(current_episode_list)
-        log.info(f'Найдены новые серии: {new_series}')
-    else:
-        log.info("Новые эпизоды не найдены")
+        log.info(
+            "new_episodes_found",
+            count=len(new_series),
+            episodes=[f"{e.title_ru} #{e.episode_number} [{e.studio_name}]" for e in new_series],
+        )
