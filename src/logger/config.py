@@ -1,60 +1,84 @@
 import logging
+import os
 import sys
 
-_log: logging.Logger | None = None
+import structlog
 
 
-class LogFormatter(logging.Formatter):
-    """Colorful log formatter"""
+def setup_logger(file_logger: bool = True, json_logs: bool | None = None):
+    """Configure structlog on top of stdlib logging (single sink).
 
-    grey = "\x1b[38;21m"
-    yellow = "\x1b[33;21m"
-    red = "\x1b[31;21m"
-    green = "\x1b[32;21m"
-    bold_red = "\x1b[31;1m"
-    reset = "\x1b[0m"
-    format = "[%(levelname)s] %(asctime)s | %(name)s | %(message)s (%(filename)s:%(lineno)d)"
-    datefmt = '%Y-%m-%d %H:%M'
+    - json_logs=True  -> single-line JSON to stdout (production / journald).
+    - json_logs=False -> colorful human-readable output (local dev).
 
-    FORMATS = {
-        logging.DEBUG: grey + format + reset,
-        logging.INFO: green + format + reset,
-        logging.WARNING: yellow + format + reset,
-        logging.ERROR: red + format + reset,
-        logging.CRITICAL: bold_red + format + reset
-    }
+    structlog renders the event and merges structured kwargs into the record,
+    then hands everything over to stdlib logging handlers.
+    """
+    if json_logs is None:
+        # default: JSON when stdout is not an interactive terminal (systemd/docker)
+        json_logs = not sys.stdout.isatty() or bool(os.getenv("ANIME_LOG_JSON"))
 
-    def format(self, record):
-        log_fmt = self.FORMATS.get(record.levelno)
-        formatter = logging.Formatter(log_fmt, datefmt='%Y-%m-%d %H:%M:%S')
-        return formatter.format(record)
+    # keep background task scheduler quiet
+    logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
 
-def setup_logger(file_logger: bool = True):
-    # change logging verbosity for bg tasks
-    logging.getLogger('apscheduler').setLevel(logging.WARNING)
+    # drop previously attached handlers so repeated setup doesn't duplicate output
+    for handler in list(root.handlers):
+        root.removeHandler(handler)
 
-    # init main logger
-    global _log
-
-    logger = logging.getLogger("app")
-    logger.setLevel(logging.INFO)
-
-    ch = logging.StreamHandler(stream=sys.stdout)
-    ch.setLevel(logging.INFO)
-    ch.setFormatter(LogFormatter())
-    logger.addHandler(ch)
+    stream_handler = logging.StreamHandler(stream=sys.stdout)
+    root.addHandler(stream_handler)
 
     if file_logger:
-        fh = logging.FileHandler('logs/logs.log')
+        fh = logging.FileHandler("logs/logs.log")
         fh.setLevel(logging.WARNING)
-        fh.setFormatter(LogFormatter())
-        logger.addHandler(fh)
+        root.addHandler(fh)
 
-    _log = logger
+    shared_processors = [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_logger_name,
+        structlog.stdlib.add_log_level,
+        structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S", utc=False),
+        structlog.processors.StackInfoRenderer(),
+        structlog.stdlib.ExtraAdder(),
+    ]
+
+    structlog.configure(
+        processors=[
+            *shared_processors,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ],
+        logger_factory=structlog.stdlib.LoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=True,
+    )
+
+    for handler in root.handlers:
+        if json_logs:
+            handler.setFormatter(
+                structlog.stdlib.ProcessorFormatter(
+                    processors=[
+                        structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                        structlog.processors.format_exc_info,
+                        structlog.processors.JSONRenderer(ensure_ascii=False),
+                    ],
+                    foreign_pre_chain=shared_processors,
+                )
+            )
+        else:
+            handler.setFormatter(
+                structlog.stdlib.ProcessorFormatter(
+                    processors=[
+                        structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+                        structlog.dev.ConsoleRenderer(colors=True),
+                    ],
+                    foreign_pre_chain=shared_processors,
+                )
+            )
 
 
-def get_logger() -> logging.Logger:
-    if _log is None:
-        raise RuntimeError("logger is not initialized")
-    return _log
+def get_logger(name: str | None = None):
+    """Return a bound structlog logger."""
+    return structlog.get_logger(name or "app")

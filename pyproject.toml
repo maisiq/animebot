@@ -33,6 +33,7 @@ dependencies = [
     "six==1.16.0 ; python_full_version >= '2.7'",
     "soupsieve==2.5 ; python_full_version >= '3.8'",
     "sqlalchemy==2.0.31 ; python_full_version >= '3.7'",
+    "structlog>=26.1.0",
     "transliterate==1.10.2",
     "typing-extensions==4.12.2 ; python_full_version >= '3.8'",
     "tzdata==2024.1 ; sys_platform == 'win32'",

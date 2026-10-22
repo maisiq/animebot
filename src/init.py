@@ -23,7 +23,7 @@ async def init(app: Application | None = None):
 
     # init periodic scrapping task
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(scrapper, 'interval', minutes=float(SCRAPPING_TASK_INTERVAL), args=[log, queue])
+    scheduler.add_job(scrapper, 'interval', minutes=float(SCRAPPING_TASK_INTERVAL), args=[queue])
 
     log.info("Starting scheduler")
     scheduler.start()

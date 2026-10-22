@@ -19,7 +19,7 @@ def retrieve_data_from_last_update_item(item: Tag):
     meta_info: str = item.find('div', class_='aw-meta').text.strip()
 
     if not meta_info.startswith(("Серия", "Серии")):
-        log.warning("Мета-строка в новой серии не та, что ожидается: %s", meta_info)
+        log.warning("unexpected_meta_line", meta=meta_info)
         return
     episode_info_raw, studio_date_raw = meta_info.split("·")
 
@@ -63,13 +63,15 @@ async def get_html_from_website(url: str, uow: UnitOfWork = Provide[Container.uo
             async with session.get(url) as resp:
                 if resp.status != 200:
                     log.error(
-                        "failed to retrieve html from url (%s). Status code: %s. Response text: %s", 
-                        url, resp.status, await resp.text(),
+                        "scrapping_http_error",
+                        url=url,
+                        status=resp.status,
+                        body=await resp.text(),
                     )
                     return
                 return await resp.text()
     except aiohttp.ClientConnectionError as e:
-        log.error(e)
+        log.error("scrapping_connection_failed", url=url, exc_info=e)
         async with uow:
             admins = await uow.users.get_admins()
 
