@@ -152,11 +152,8 @@ async def unsubscribe_season_handler(
             user.unsubscribe(season)
         await uow.commit()
 
-        # refresh user's subs
-        user = await uow.users.get_user_by_id(callback.message.chat.id)
-
         if user:
-            subscriptions = user.animelist  # TODO: fix one more request to db
+            subscriptions = user.animelist
         else:
             subscriptions = list()
 
