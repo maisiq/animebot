@@ -145,7 +145,7 @@ async def season_scrapper():
 
     async with uow:
         anime_pages = await collect_anime_urls(list_url, base_url)
-        for page_url, cover in sorted(anime_pages.items()):
+        for page_url, list_cover in sorted(anime_pages.items()):
             content = await get_html_from_website(page_url)
             if not content:
                 continue
@@ -158,7 +158,7 @@ async def season_scrapper():
 
             title_ru = title_tag.get_text(strip=True)
             # обложку берём со страницы карточки, fallback — thumbnail из списка
-            cover = _fetch_cover(soup) or cover or ''
+            cover = _fetch_cover(soup) or list_cover or ''
 
             try:
                 if await save_season_if_new(uow, title_ru, cover):
