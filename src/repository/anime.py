@@ -5,6 +5,7 @@ from transliterate import translit
 from .orm_models import (
     DubbedSeason,
     Episode,
+    Origin,
     Season,
     SeasonStatus,
 )
@@ -13,6 +14,18 @@ from .orm_models import (
 class AnimeRepository:
     def __init__(self, session: AsyncSession):
         self._session = session
+
+    async def get_origin_by_title_ru(self, title_ru: str) -> Origin | None:
+        res = await self._session.execute(
+            select(Origin).where(Origin.title_ru == title_ru)
+        )
+        return res.scalar_one_or_none()
+
+    async def season_exists(self, title_ru: str) -> bool:
+        res = await self._session.execute(
+            select(Season.id).where(Season.title_ru == title_ru).limit(1)
+        )
+        return res.scalar() is not None
 
     async def get_dubbed_seasons_by_season_id(self, season_id: int):
         result = await self._session.execute(
