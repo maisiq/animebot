@@ -17,6 +17,7 @@ class AdminRepository:
     def add_origin(self, title_ru: str, title_en: str):
         new_origin = Origin(title_ru=title_ru, title_en=title_en)
         self._session.add(new_origin)
+        return new_origin
 
     def add_season(self, origin_id: int, title_ru: str, title_en: str, cover: str, status: str):
         new_season = Season(
@@ -27,6 +28,7 @@ class AdminRepository:
             status=status,
         )
         self._session.add(new_season)
+        return new_season
 
     def add_studio(self, studio_name):
         new_season = VoiceoverStudio(name=studio_name)
