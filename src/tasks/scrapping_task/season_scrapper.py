@@ -49,10 +49,10 @@ def current_season_path(now: datetime | None = None) -> str:
 
 
 def extract_anime_links(soup: BeautifulSoup, base_url: str) -> dict[str, str | None]:
-    """Возвращает {URL карточки: URL обложки} со страницы списка.
+    """Возвращает {URL карточки: URL обложки со страницы списка} .
 
-    Обложку берём со страницы списка: на самой карточке аниме селектор
-    .ani-list__item-picture отсутствует.
+    Обложка со списка — черновик (thumbnail); финальную берём со страницы
+    карточки в блоке .fancybox-trigger-cover (см. _fetch_cover).
     """
     links: dict[str, str | None] = {}
     for item in soup.select('.ani-list__item'):
@@ -65,6 +65,15 @@ def extract_anime_links(soup: BeautifulSoup, base_url: str) -> dict[str, str | N
         cover = (picture.get('src') or picture.get('data-src')) if picture else None
         links[urljoin(base_url, anchor['href'])] = cover
     return links
+
+
+def _fetch_cover(soup: BeautifulSoup) -> str | None:
+    """Обложка со страницы карточки: блок .fancybox-trigger-cover > img."""
+    block = soup.select_one('.fancybox-trigger-cover')
+    img = block.find('img') if block else None
+    if not img:
+        return None
+    return img.get('src') or img.get('data-src')
 
 
 def next_page_url(soup: BeautifulSoup, base_url: str) -> str | None:
@@ -136,7 +145,7 @@ async def season_scrapper():
 
     async with uow:
         anime_pages = await collect_anime_urls(list_url, base_url)
-        for page_url, cover in sorted(anime_pages.items()):
+        for page_url, list_cover in sorted(anime_pages.items()):
             content = await get_html_from_website(page_url)
             if not content:
                 continue
@@ -148,7 +157,8 @@ async def season_scrapper():
                 continue
 
             title_ru = title_tag.get_text(strip=True)
-            cover = cover or ''
+            # обложку берём со страницы карточки, fallback — thumbnail из списка
+            cover = _fetch_cover(soup) or list_cover or ''
 
             try:
                 if await save_season_if_new(uow, title_ru, cover):
