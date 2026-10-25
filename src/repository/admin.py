@@ -82,3 +82,8 @@ class AdminRepository:
     async def studios_list(self) -> list[VoiceoverStudio]:
         response = await self._session.execute(select(VoiceoverStudio))
         return response.scalars().all()
+
+    async def get_studio_names(self) -> set[str]:
+        """Все известные названия студий озвучки (для дедупликации при скраппинге)."""
+        res = await self._session.execute(select(VoiceoverStudio.name))
+        return set(res.scalars().all())
