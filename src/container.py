@@ -13,7 +13,10 @@ class Container(containers.DeclarativeContainer):
             "routers",
             "tasks.notification_task"
         ],
-        modules=["tasks.scrapping_task.utils"]
+        modules=[
+            "tasks.scrapping_task.utils",
+            "tasks.scrapping_task.season_scrapper",
+        ]
     )
 
     logger = providers.Resource(
