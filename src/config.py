@@ -2,7 +2,8 @@ from os import getenv
 
 # Global
 
-DEBUG = getenv("ANIME_DEBUG")
+TRUTHY_VALUES = {"1", "true", "yes", "on"}
+DEBUG = getenv("ANIME_DEBUG", "").strip().lower() in TRUTHY_VALUES
 
 # Bot
 
