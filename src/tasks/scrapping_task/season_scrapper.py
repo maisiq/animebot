@@ -11,9 +11,12 @@ from datetime import datetime
 from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
+from dependency_injector.providers import Factory
+from dependency_injector.wiring import Provide, inject
 from sqlalchemy.exc import SQLAlchemyError
 
 from config import SCRAPPING_TASK_URL
+from container import Container
 from logger import get_logger
 from tasks.scrapping_task.utils import get_html_from_website
 from uow import UnitOfWork
@@ -131,14 +134,14 @@ async def save_season_if_new(uow: UnitOfWork, title_ru: str, cover: str | None) 
     return True
 
 
-async def season_scrapper():
+@inject
+async def season_scrapper(
+    uow_factory: Factory[UnitOfWork] = Provide[Container.uow.provider],
+):
     base_url = season_base_url()
     list_url = urljoin(base_url, current_season_path().lstrip('/'))
     log.info("season_scrapping_started", url=list_url)
 
-    from dependency_injector.wiring import Provide
-    from container import Container
-    uow_factory = Provide[Container.uow.provider]
     uow: UnitOfWork = uow_factory()
 
     added_titles: list[str] = []
