@@ -141,12 +141,20 @@ async def save_season_if_new(uow: UnitOfWork, title_ru: str, cover: str | None) 
     return True
 
 
-async def sync_dubbed_studios(uow: UnitOfWork, season, dub_names: list[str]) -> list[str]:
+async def sync_dubbed_studios(
+    uow: UnitOfWork,
+    season,
+    dub_names: list[str],
+    is_new: bool = False,
+) -> list[str]:
     """Привязывает озвучки со страницы карточки к сезону (DubbedSeason).
 
     Добавляет только те студии, которых у сезона ещё нет; существующие записи
     не удаляются и не трогаются. В voiceover_studios заносятся неизвестные
-    названия (кроме служебной '#subscribe_on_first').
+    названия — один раз, независимо от того, есть ли они уже у сезона
+    (служебная '#subscribe_on_first' тоже заводится в справочник, если её там
+    ещё нет). Для каждого нового сезона дополнительно создаётся подписка на
+    первый выход серий — DubbedSeason со студией '#subscribe_on_first'.
 
     Возвращает список реально добавленных названий.
     """
@@ -154,15 +162,17 @@ async def sync_dubbed_studios(uow: UnitOfWork, season, dub_names: list[str]) -> 
     known_studios = await uow.admin.get_studio_names()
     added: list[str] = []
 
+    # служебную студию добавляем к каждому новому сезону вместе с озвучками
+    names_to_link = [name for name in dict.fromkeys(dub_names) if name]
+    if is_new and SUBSCRIBE_ON_FIRST_STUDIO not in existing:
+        names_to_link.append(SUBSCRIBE_ON_FIRST_STUDIO)
+
     # сначала регистрируем все новые студии в voiceover_studios и flush'им,
     # чтобы к моменту вставки DubbedSeason FK-ключи уже существовали в БД
     # (без этого psycopg поднимает ForeignKeyViolation)
     to_register = [
-        name for name in dict.fromkeys(dub_names)
-        if name
-        and name not in existing
-        and name != SUBSCRIBE_ON_FIRST_STUDIO  # служебная студия в справочнике не заводится
-        and name not in known_studios
+        name for name in names_to_link
+        if name not in known_studios
     ]
     if to_register:
         for studio_name in to_register:
@@ -170,8 +180,8 @@ async def sync_dubbed_studios(uow: UnitOfWork, season, dub_names: list[str]) -> 
             known_studios.add(studio_name)
         await uow._session.flush()
 
-    for studio_name in dub_names:
-        if not studio_name or studio_name in existing:
+    for studio_name in names_to_link:
+        if studio_name in existing:
             continue
         uow.admin.add_dubbed_season(season.id, season.title_ru, studio_name)
         existing.add(studio_name)
@@ -224,8 +234,10 @@ async def season_scrapper(
                 await uow._session.flush()
 
                 season = await uow.anime.get_season_by_name(title_ru)
-                if season is not None and dub_names:
-                    added_studios = await sync_dubbed_studios(uow, season, dub_names)
+                if season is not None and (dub_names or is_new):
+                    added_studios = await sync_dubbed_studios(
+                        uow, season, dub_names, is_new=is_new,
+                    )
                     if added_studios:
                         dubbed_added.setdefault(title_ru, []).extend(added_studios)
 
