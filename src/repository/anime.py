@@ -41,6 +41,13 @@ class AnimeRepository:
         )
         return res.scalar_one_or_none()
 
+    async def get_dubbed_seasons_names(self, season_id: int) -> set[str]:
+        """Названия озвучек (studio_name), уже привязанные к сезону."""
+        res = await self._session.execute(
+            select(DubbedSeason.studio_name).where(DubbedSeason.season_id == season_id)
+        )
+        return set(res.scalars().all())
+
     async def get_season_by_id(self, season_id: int) -> Season:
         return await self._session.get(Season, season_id)
 
