@@ -154,14 +154,25 @@ async def sync_dubbed_studios(uow: UnitOfWork, season, dub_names: list[str]) -> 
     known_studios = await uow.admin.get_studio_names()
     added: list[str] = []
 
+    # сначала регистрируем все новые студии в voiceover_studios и flush'им,
+    # чтобы к моменту вставки DubbedSeason FK-ключи уже существовали в БД
+    # (без этого psycopg поднимает ForeignKeyViolation)
+    to_register = [
+        name for name in dict.fromkeys(dub_names)
+        if name
+        and name not in existing
+        and name != SUBSCRIBE_ON_FIRST_STUDIO  # служебная студия в справочнике не заводится
+        and name not in known_studios
+    ]
+    if to_register:
+        for studio_name in to_register:
+            uow.admin.add_studio(studio_name)
+            known_studios.add(studio_name)
+        await uow._session.flush()
+
     for studio_name in dub_names:
         if not studio_name or studio_name in existing:
             continue
-        # служебную студию '#subscribe_on_first' не заводим в справочнике,
-        # но DubbedSeason с ней создаём (подписка на самую первую озвучку)
-        if studio_name != SUBSCRIBE_ON_FIRST_STUDIO and studio_name not in known_studios:
-            uow.admin.add_studio(studio_name)
-            known_studios.add(studio_name)
         uow.admin.add_dubbed_season(season.id, season.title_ru, studio_name)
         existing.add(studio_name)
         added.append(studio_name)
@@ -207,10 +218,10 @@ async def season_scrapper(
             try:
                 is_new = await save_season_if_new(uow, title_ru, cover)
                 if is_new:
-                    # Season ещё не в сессии как persistent-объект — достаём его,
-                    # чтобы получить id для привязки озвучек
-                    await uow._session.flush()
                     added_titles.append(title_ru)
+                # flush нужен и для новых сезонов (получить id), и для студий,
+                # добавленных админ-командами в этой же транзакции
+                await uow._session.flush()
 
                 season = await uow.anime.get_season_by_name(title_ru)
                 if season is not None and dub_names:
