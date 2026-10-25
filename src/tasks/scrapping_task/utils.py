@@ -1,10 +1,12 @@
 import json
 import os
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import aiohttp
 from bs4.element import Tag
 from dependency_injector.wiring import Provide, inject
 
+import config
 from bot import bot
 from container import Container
 from logger import get_logger
@@ -54,24 +56,48 @@ def get_saved_episode_list():
         return saved_episode_list
 
 
+TARGET_PARAM_NAME = '_target'
+
+
+def build_request_url(target_url: str) -> str:
+    """Возвращает URL для HTTP-запроса.
+
+    Если задан ANIME_BOT_SCRAPPING_TASK_PROXY_URL, запрос идёт на прокси,
+    а целевая страница (построенная из SCRAPPING_TASK_URL, например
+    https://animego.me/anime/season/2026/fall) передаётся в query-параметре
+    ``_target``. Иначе возвращается исходный URL без изменений.
+    """
+    proxy_url = (config.SCRAPPING_TASK_PROXY_URL or '').strip()
+    if not proxy_url:
+        return target_url
+
+    parts = urlsplit(proxy_url)
+    query = dict(parse_qsl(parts.query))
+    query[TARGET_PARAM_NAME] = target_url
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
 @inject
 async def get_html_from_website(url: str, uow: UnitOfWork = Provide[Container.uow]):
     log = get_logger()
 
+    request_url = build_request_url(url)
+
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
+            async with session.get(request_url) as resp:
                 if resp.status != 200:
                     log.error(
                         "scrapping_http_error",
                         url=url,
+                        request_url=request_url,
                         status=resp.status,
                         body=await resp.text(),
                     )
                     return
                 return await resp.text()
     except aiohttp.ClientConnectionError as e:
-        log.error("scrapping_connection_failed", url=url, exc_info=e)
+        log.error("scrapping_connection_failed", url=url, request_url=request_url, exc_info=e)
         async with uow:
             admins = await uow.users.get_admins()
 
