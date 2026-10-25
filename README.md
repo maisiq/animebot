@@ -82,7 +82,7 @@ cp .env-empty .env
 | `ANIME_DB_DSN` | Строка подключения к БД, напр. `postgresql+psycopg://user:pass@host:5432/dbname` |
 | `ANIME_DB_SCHEMA` | (опционально) Схема БД, по умолчанию `animealarm` |
 
-> Также могут понадобиться `ANIME_BOT_SCRAPPING_TASK_URL` (URL страницы для скрапинга) и переменные PostgreSQL (`POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_PASSWORD`) для docker-compose.
+> Также могут понадобиться `ANIME_BOT_SCRAPPING_TASK_URL` (URL страницы для скрапинга), `ANIME_BOT_SCRAPPING_TASK_PROXY_URL` (необязательный прокси: если задан, запрос идёт на него, а целевая страница передаётся в query-параметре `_target`) и переменные PostgreSQL (`POSTGRES_USER`, `POSTGRES_DB`, `POSTGRES_PASSWORD`) для docker-compose.
 
 ### 2. Запуск в Docker
 

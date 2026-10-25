@@ -26,5 +26,8 @@ DB_SCHEMA = getenv("ANIME_DB_SCHEMA", "animealarm")
 
 SCRAPPING_TASK_INTERVAL = getenv("ANIME_BOT_SCRAPPING_TASK_INTERVAL")
 SCRAPPING_TASK_URL = getenv("ANIME_BOT_SCRAPPING_TASK_URL")
+# Прокси для получения HTML. Если задан, запрос идёт на этот URL, а целевая
+# страница (построенная из SCRAPPING_TASK_URL) передаётся в query-параметре _target.
+SCRAPPING_TASK_PROXY_URL = getenv("ANIME_BOT_SCRAPPING_TASK_PROXY_URL")
 
 SEASON_SCRAPPING_TASK_INTERVAL = getenv("ANIME_BOT_SEASON_SCRAPPING_TASK_INTERVAL", "1440")
